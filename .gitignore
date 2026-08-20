@@ -1,0 +1,87 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+xtts_venv/
+backend/venv/
+
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Hugging Face / ML caches
+# =========================
+hf_cache/
+.cache/
+
+# =========================
+# Datasets
+# =========================
+datasets/
+*.zip
+*.rar
+*.7z
+
+# =========================
+# Temporary files
+# =========================
+tepm_audio/
+tepm/
+tmp/
+uploads/
+
+*.wav
+*.mp3
+*.m4a
+*.mp4
+
+# =========================
+# Python caches / testing
+# =========================
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# =========================
+# Large ML model files
+# =========================
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.bin
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# ASL extracted feature files
+asl_training/features/
+asl_training/features_normalized/
+*.npy
+
+# Trained ML model files
+*.pkl
