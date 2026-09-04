@@ -38,6 +38,7 @@ HAND_MODEL = (
 INPUT_SIZE = 126
 HIDDEN_SIZE = 128
 NUM_LAYERS = 2
+SEQUENCE_LENGTH = 60
 
 DEVICE = torch.device("cpu")
 
@@ -590,3 +591,66 @@ def predict_image(
     return predict_sequence(
         [features]
     )
+
+
+# ============================================================
+# PREDICT FROM A WEBCAM FRAME SEQUENCE
+# ============================================================
+
+def _decode_image(image_bytes):
+    image_array = np.frombuffer(image_bytes, dtype=np.uint8)
+    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+    if image is None:
+        raise ValueError("Could not decode an uploaded frame")
+
+    return image
+
+
+def predict_frame_sequence(frame_bytes_sequence):
+    """Extract landmarks from a chronological webcam frame sequence.
+
+    A missing hand resets the active sequence, exactly as in the training
+    webcam loop. The client supplies frames in capture order and does not
+    mirror them.
+    """
+    if not frame_bytes_sequence:
+        return {
+            "prediction": "NO_HAND",
+            "confidence": 0.0,
+            "frames_received": 0,
+            "frames_with_hands": 0,
+        }
+
+    feature_sequence = []
+    frames_with_hands = 0
+
+    for image_bytes in frame_bytes_sequence:
+        image = _decode_image(image_bytes)
+        features, hand_detected = extract_features(image)
+
+        if hand_detected:
+            feature_sequence.append(features)
+            frames_with_hands += 1
+
+    if len(feature_sequence) < SEQUENCE_LENGTH:
+        return {
+            "prediction": "COLLECTING_FRAMES",
+            "confidence": 0.0,
+            "frames_received": len(frame_bytes_sequence),
+            "frames_with_hands": frames_with_hands,
+            "consecutive_frames": len(feature_sequence),
+            "frames_required": SEQUENCE_LENGTH,
+        }
+
+    # Keep the most recent 60 valid frames, the same temporal window used by
+    # webcam_bilstm_attention.py during model testing.
+    result = predict_sequence(feature_sequence[-SEQUENCE_LENGTH:])
+    result.update(
+        {
+            "frames_received": len(frame_bytes_sequence),
+            "frames_with_hands": frames_with_hands,
+            "frames_used": SEQUENCE_LENGTH,
+        }
+    )
+    return result

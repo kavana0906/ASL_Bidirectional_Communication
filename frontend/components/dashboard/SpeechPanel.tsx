@@ -1,89 +1,206 @@
 "use client";
 
-import { useState } from "react";
-import { Mic, Square } from "lucide-react";
-import { useTranslation } from "@/context/TranslationContext";
+import {
+  useState,
+} from "react";
 
-declare global {
-  interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
-  }
+import {
+  Mic,
+  Square,
+} from "lucide-react";
+
+import {
+  useTranslation,
+} from "@/context/TranslationContext";
+
+import {
+  startRecording,
+  stopRecording,
+} from "@/services/audioRecorder";
+
+import {
+  speechToText,
+} from "@/services/api";
+
+
+// ============================================================
+// PROPS
+// ============================================================
+
+interface SpeechPanelProps {
+  sendRoomMessage: (data: object) => void;
 }
 
-export default function SpeechPanel() {
+
+// ============================================================
+// COMPONENT
+// ============================================================
+
+export default function SpeechPanel({
+  sendRoomMessage,
+}: SpeechPanelProps) {
+
   const {
-  speechText,
-  setSpeechText,
-  setSentence,
-} = useTranslation();
+    speechText,
+    setSpeechText,
+    setSentence,
+  } = useTranslation();
 
-  const [isListening, setIsListening] = useState(false);
 
-  let recognition: any = null;
+  const [
+    isListening,
+    setIsListening,
+  ] = useState(false);
 
-  function startListening() {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
-      alert("Speech Recognition is not supported in this browser.");
-      return;
-    }
+  // ============================================================
+  // START LISTENING
+  // ============================================================
 
-    recognition = new SpeechRecognition();
+  async function startListening() {
 
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    try {
 
-    recognition.lang = "en-US";
+      await startRecording();
 
-    recognition.onstart = () => {
       setIsListening(true);
-    };
 
-    recognition.onresult = (event: any) => {
-      let transcript = "";
+    } catch (error) {
 
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript + " ";
+      console.error(
+        "Microphone error:",
+        error
+      );
+
+      alert(
+        "Unable to access microphone."
+      );
+
+    }
+  }
+
+
+  // ============================================================
+  // STOP LISTENING
+  // ============================================================
+
+  async function stopListening() {
+
+    try {
+
+      const audioBlob =
+        await stopRecording();
+
+
+      setIsListening(false);
+
+
+      console.log(
+        "Sending audio to Whisper..."
+      );
+
+
+      // ========================================================
+      // WHISPER
+      // ========================================================
+
+      const result =
+        await speechToText(
+          audioBlob
+        );
+
+
+      console.log(
+        "Whisper result:",
+        result
+      );
+
+
+      const text =
+        result.text || "";
+
+
+      // ========================================================
+      // UPDATE LOCAL UI
+      // ========================================================
+
+      setSpeechText(text);
+
+      setSentence(text);
+
+
+      // ========================================================
+      // SEND SPEECH TO OTHER USER
+      // ========================================================
+
+      if (text.trim()) {
+
+        sendRoomMessage({
+
+          type: "speech",
+
+          text: text,
+
+        });
+
+
+        console.log(
+          "Speech text sent to room:",
+          text
+        );
+
       }
 
-      setSpeechText(transcript);
-setSentence(transcript);
-    };
+    } catch (error) {
 
-    recognition.onend = () => {
+      console.error(
+        "Speech-to-text error:",
+        error
+      );
+
       setIsListening(false);
-    };
 
-    recognition.start();
-
-    (window as any).currentRecognition = recognition;
-  }
-
-  function stopListening() {
-    if ((window as any).currentRecognition) {
-      (window as any).currentRecognition.stop();
     }
   }
 
+
+  // ============================================================
+  // UI
+  // ============================================================
+
   return (
+
     <div className="bg-slate-900 rounded-3xl border border-slate-800 h-full p-6">
 
+      {/* ====================================================== */}
+      {/* HEADER */}
+      {/* ====================================================== */}
+
       <div className="flex justify-between mb-6">
+
         <h2 className="text-2xl font-bold">
           Speech Input
         </h2>
 
+
         <span
           className={`font-semibold ${
-            isListening ? "text-green-400" : "text-red-400"
+            isListening
+              ? "text-green-400"
+              : "text-red-400"
           }`}
         >
-          {isListening ? "Listening..." : "Stopped"}
+          {isListening
+            ? "Listening..."
+            : "Stopped"}
         </span>
+
       </div>
+
+
+      {/* ====================================================== */}
+      {/* SPEECH TEXT */}
+      {/* ====================================================== */}
 
       <div className="bg-slate-800 rounded-2xl p-6 h-[220px] overflow-auto">
 
@@ -92,27 +209,46 @@ setSentence(transcript);
         </p>
 
         <p className="text-2xl leading-relaxed">
-          {speechText || "Start speaking..."}
+          {speechText ||
+            "Start speaking..."}
         </p>
 
       </div>
 
+
+      {/* ====================================================== */}
+      {/* CONTROLS */}
+      {/* ====================================================== */}
+
       <div className="flex gap-4 mt-6">
+
+        {/* START */}
 
         <button
           onClick={startListening}
-          className="flex-1 bg-green-600 hover:bg-green-700 py-3 rounded-xl flex items-center justify-center gap-2"
+          disabled={isListening}
+          className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed py-3 rounded-xl flex items-center justify-center gap-2"
         >
+
           <Mic size={18} />
+
           Start
+
         </button>
+
+
+        {/* STOP */}
 
         <button
           onClick={stopListening}
-          className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl flex items-center justify-center gap-2"
+          disabled={!isListening}
+          className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed py-3 rounded-xl flex items-center justify-center gap-2"
         >
+
           <Square size={18} />
+
           Stop
+
         </button>
 
       </div>

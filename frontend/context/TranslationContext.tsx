@@ -12,6 +12,8 @@ type TranslationContextType = {
   setSentence: (sentence: string) => void;
   setConfidence: (confidence: number) => void;
   setSpeechText: (text: string) => void;
+  appendDetectedSign: (sign: string) => void;
+  clearSentence: () => void;
 };
 
 const TranslationContext = createContext<TranslationContextType | undefined>(
@@ -28,6 +30,16 @@ export function TranslationProvider({
   const [confidence, setConfidence] = useState(0);
   const [speechText, setSpeechText] = useState("");
 
+  function appendDetectedSign(sign: string) {
+    setSentence((currentSentence) => (
+      currentSentence ? `${currentSentence} ${sign}` : sign
+    ));
+  }
+
+  function clearSentence() {
+    setSentence("");
+  }
+
   return (
     <TranslationContext.Provider
       value={{
@@ -39,6 +51,8 @@ export function TranslationProvider({
     setSentence,
     setConfidence,
     setSpeechText,
+    appendDetectedSign,
+    clearSentence,
       }}
     >
       {children}

@@ -29,3 +29,30 @@ export function captureFrame(
   });
 
 }
+
+export function captureFrameSequence(
+  video: HTMLVideoElement,
+  frameCount: number,
+  intervalMs: number,
+): Promise<Blob[]> {
+  return new Promise((resolve, reject) => {
+    const frames: Blob[] = [];
+
+    const captureNext = async () => {
+      try {
+        frames.push(await captureFrame(video));
+
+        if (frames.length === frameCount) {
+          resolve(frames);
+          return;
+        }
+
+        setTimeout(captureNext, intervalMs);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    void captureNext();
+  });
+}

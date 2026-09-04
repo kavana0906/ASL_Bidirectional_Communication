@@ -1,28 +1,26 @@
-from fastapi import APIRouter, UploadFile, File
+from typing import List
 
-from backend.services.sign_services import predict_image
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from backend.services.sign_services import predict_frame_sequence
 
 
 router = APIRouter()
 
 
-@router.post("/predict")
-async def predict(image: UploadFile = File(...)):
+@router.post("/predict-sequence")
+async def predict_sequence(frames: List[UploadFile] = File(...)):
+    """Predict one ASL sign from chronological, unmirrored webcam frames."""
+    if not frames:
+        raise HTTPException(status_code=422, detail="Provide at least one frame.")
 
-    # Read uploaded image
-    image_bytes = await image.read()
+    # A bounded request protects the API from accidentally receiving a long
+    # recording while still allowing the exact 60-frame trained window.
+    if len(frames) > 90:
+        raise HTTPException(status_code=422, detail="Send no more than 90 frames.")
 
-    print(
-        f"Received image: {image.filename}"
-    )
-
-    print(
-        f"Image size: {len(image_bytes)} bytes"
-    )
-
-    # Run ASL model
-    result = predict_image(
-        image_bytes
-    )
-
-    return result
+    try:
+        frame_bytes = [await frame.read() for frame in frames]
+        return predict_frame_sequence(frame_bytes)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error

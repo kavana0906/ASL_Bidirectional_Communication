@@ -1,5 +1,8 @@
 "use client";
 
+import { Trash2, Volume2 } from "lucide-react";
+
+import { speak } from "@/services/speech";
 import { useTranslation } from "@/context/TranslationContext";
 
 export default function TranslationPanel() {
@@ -8,6 +11,7 @@ export default function TranslationPanel() {
     sentence,
     confidence,
     speechText,
+    clearSentence,
   } = useTranslation();
 
   return (
@@ -48,6 +52,27 @@ export default function TranslationPanel() {
         <p className="text-xl">
           {sentence || "Waiting..."}
         </p>
+
+        <div className="flex gap-3 mt-5">
+          <button
+            onClick={() => speak(sentence)}
+            disabled={!sentence}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 py-3 transition"
+          >
+            <Volume2 size={18} />
+            Speak Sentence
+          </button>
+
+          <button
+            onClick={clearSentence}
+            disabled={!sentence}
+            className="flex items-center justify-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50 px-4 py-3 transition"
+            aria-label="Clear sentence"
+          >
+            <Trash2 size={18} />
+            Clear
+          </button>
+        </div>
       </div>
 
       {/* Confidence */}

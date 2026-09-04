@@ -10,18 +10,45 @@ export async function checkBackend() {
   return response.json();
 }
 
-export async function predictSign(imageBlob: Blob) {
+export async function predictSign(frameBlobs: Blob[]) {
   const formData = new FormData();
 
-  formData.append("image", imageBlob, "frame.jpg");
+  frameBlobs.forEach((frame, index) => {
+    formData.append("frames", frame, `frame-${index}.jpg`);
+  });
 
-  const response = await fetch(`${API_URL}/predict`, {
+  const response = await fetch(`${API_URL}/predict-sequence`, {
     method: "POST",
     body: formData,
   });
 
   if (!response.ok) {
     throw new Error("Prediction failed");
+  }
+
+  return response.json();
+}
+export async function speechToText(audioBlob: Blob) {
+  const formData = new FormData();
+
+  formData.append(
+    "audio",
+    audioBlob,
+    "recording.webm"
+  );
+
+  const response = await fetch(
+    `${API_URL}/speech/speech-to-text`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Speech-to-text request failed"
+    );
   }
 
   return response.json();

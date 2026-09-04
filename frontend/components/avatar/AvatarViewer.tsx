@@ -1,34 +1,22 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import AvatarScene from "./AvatarScene";
 
-function AvatarPlaceholder() {
-  return (
-    <mesh rotation={[0.3, 0.5, 0]}>
-      <boxGeometry args={[1.2, 2, 1]} />
-      <meshStandardMaterial color="#4F46E5" />
-    </mesh>
-  );
+interface Props {
+  currentSign?: string;
+  playTrigger?: number;
 }
 
-export default function AvatarViewer() {
+export default function AvatarViewer({
+  currentSign = "HELLO",
+  playTrigger = 0,
+}: Props) {
   return (
-    <Canvas camera={{ position: [0, 1.5, 5], fov: 45 }}>
-
-      <ambientLight intensity={2} />
-
-      <directionalLight
-        position={[5, 5, 5]}
-        intensity={2}
+    <div className="w-full h-full">
+      <AvatarScene
+        currentSign={currentSign}
+        playTrigger={playTrigger}
       />
-
-      <AvatarPlaceholder />
-
-      <OrbitControls
-        enableZoom={false}
-      />
-
-    </Canvas>
+    </div>
   );
 }

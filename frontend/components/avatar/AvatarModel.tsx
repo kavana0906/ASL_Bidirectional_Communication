@@ -2,8 +2,14 @@
 
 import { useGLTF } from "@react-three/drei";
 
-export default function AvatarModel() {
-  const { scene } = useGLTF("/models/avatar.glb");
+interface Props {
+  modelPath: string;
+}
+
+export default function AvatarModel({
+  modelPath,
+}: Props) {
+  const { scene } = useGLTF(modelPath);
 
   return (
     <primitive
@@ -13,5 +19,3 @@ export default function AvatarModel() {
     />
   );
 }
-
-useGLTF.preload("/models/avatar.glb");
