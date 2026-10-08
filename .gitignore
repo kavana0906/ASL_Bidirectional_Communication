@@ -85,3 +85,6 @@ asl_training/features_normalized/
 
 # Trained ML model files
 *.pkl
+
+# Installer files
+*.msi
