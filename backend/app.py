@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.sign import router as sign_router
 from backend.routes.speech import router as speech_router
 from backend.routes.room import router as room_router
+from backend.routes.translation import router as translation_router
 app = FastAPI(
     title="SignBridge AI Backend",
     version="1.0.0"
@@ -36,3 +37,4 @@ def health():
     }
 app.include_router(speech_router,prefix="/speech",tags=["Speech"])
 app.include_router(sign_router, tags=["Sign"])
+app.include_router(translation_router, tags=["Translation"])

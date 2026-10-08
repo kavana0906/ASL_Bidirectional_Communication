@@ -28,14 +28,18 @@ export async function predictSign(frameBlobs: Blob[]) {
 
   return response.json();
 }
-export async function speechToText(audioBlob: Blob) {
+export async function speechToText(
+  audioBlob: Blob,
+  language: "en" | "hi" | "kn",
+) {
   const formData = new FormData();
 
   formData.append(
     "audio",
     audioBlob,
-    "recording.webm"
+    "recording.wav"
   );
+  formData.append("language", language);
 
   const response = await fetch(
     `${API_URL}/speech/speech-to-text`,
@@ -46,8 +50,39 @@ export async function speechToText(audioBlob: Blob) {
   );
 
   if (!response.ok) {
+    const errorBody = await response.text();
     throw new Error(
-      "Speech-to-text request failed"
+      `Speech-to-text failed (${response.status}): ${errorBody}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function translateText(
+  text: string,
+  sourceLanguage: "hi" | "kn",
+) {
+  const response = await fetch(
+    `${API_URL}/translation/translate`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        source_language: sourceLanguage,
+        target_language: "en",
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+
+    throw new Error(
+      `Translation failed (${response.status}): ${errorBody}`
     );
   }
 

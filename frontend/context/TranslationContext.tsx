@@ -1,12 +1,15 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
+import type { ConversationLanguage } from "@/services/signLanguage";
 
 type TranslationContextType = {
   detectedWord: string;
   sentence: string;
   confidence: number;
   speechText: string;
+  translatedText: string;
+  conversationLanguage: ConversationLanguage;
 
   setDetectedWord: (word: string) => void;
   setSentence: (sentence: string) => void;
@@ -14,6 +17,8 @@ type TranslationContextType = {
   setSpeechText: (text: string) => void;
   appendDetectedSign: (sign: string) => void;
   clearSentence: () => void;
+  appendTranslatedSign: (sign: string) => void;
+  setConversationLanguage: (language: ConversationLanguage) => void;
 };
 
 const TranslationContext = createContext<TranslationContextType | undefined>(
@@ -29,6 +34,8 @@ export function TranslationProvider({
   const [sentence, setSentence] = useState("");
   const [confidence, setConfidence] = useState(0);
   const [speechText, setSpeechText] = useState("");
+  const [translatedText, setTranslatedText] = useState("");
+  const [conversationLanguage, setConversationLanguage] = useState<ConversationLanguage>("en");
 
   function appendDetectedSign(sign: string) {
     setSentence((currentSentence) => (
@@ -38,6 +45,13 @@ export function TranslationProvider({
 
   function clearSentence() {
     setSentence("");
+    setTranslatedText("");
+  }
+
+  function appendTranslatedSign(sign: string) {
+    setTranslatedText((currentText) => (
+      currentText ? `${currentText} ${sign}` : sign
+    ));
   }
 
   return (
@@ -47,12 +61,16 @@ export function TranslationProvider({
     sentence,
     confidence,
     speechText,
+    translatedText,
+    conversationLanguage,
     setDetectedWord,
     setSentence,
     setConfidence,
     setSpeechText,
     appendDetectedSign,
     clearSentence,
+    appendTranslatedSign,
+    setConversationLanguage,
       }}
     >
       {children}

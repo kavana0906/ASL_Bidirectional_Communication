@@ -8,6 +8,7 @@ export default function JoinRoomPage() {
 
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
+  const [mode, setMode] = useState<"normal" | "asl" | "">("");
 
   function joinRoom() {
     if (!name.trim() || !roomId.trim()) {
@@ -15,46 +16,156 @@ export default function JoinRoomPage() {
       return;
     }
 
+    if (!mode) {
+      alert("Please select your communication mode.");
+      return;
+    }
+
     router.push(
-      `/meeting?room=${roomId}&user=${encodeURIComponent(name)}`
+      `/meeting?room=${encodeURIComponent(
+        roomId.trim()
+      )}&user=${encodeURIComponent(
+        name.trim()
+      )}&mode=${mode}`
     );
   }
 
   return (
     <main className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
 
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8">
+      <div className="w-full max-w-md">
 
-        <h1 className="text-4xl font-bold text-white mb-2">
-          Join Room
-        </h1>
+        {/* Header */}
+        <div className="text-center mb-8">
 
-        <p className="text-slate-400 mb-8">
-          Join an existing SignBridge AI meeting.
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 mb-4">
+            <span className="text-2xl">🌉</span>
+          </div>
+
+          <h1 className="text-3xl font-bold text-white">
+            Join a Room
+          </h1>
+
+          <p className="text-slate-500 text-sm mt-2">
+            Enter the room details to continue
+          </p>
+
+        </div>
+
+        {/* Form */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+
+          {/* Name */}
+          <div className="mb-5">
+
+            <label className="block text-sm text-slate-300 mb-2">
+              Your name
+            </label>
+
+            <input
+              type="text"
+              placeholder="Enter your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl bg-slate-950 border border-slate-800 px-4 py-3 text-white placeholder:text-slate-600 outline-none transition focus:border-blue-500"
+            />
+
+          </div>
+
+          {/* Room ID */}
+          <div className="mb-6">
+
+            <label className="block text-sm text-slate-300 mb-2">
+              Room ID
+            </label>
+
+            <input
+              type="text"
+              placeholder="e.g. SB-123456"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              className="w-full rounded-xl bg-slate-950 border border-slate-800 px-4 py-3 text-white placeholder:text-slate-600 outline-none transition focus:border-blue-500"
+            />
+
+          </div>
+
+          {/* Mode */}
+          <div>
+
+            <label className="block text-sm text-slate-300 mb-3">
+              Communication mode
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+
+              {/* Speech */}
+              <button
+                type="button"
+                onClick={() => setMode("normal")}
+                className={`rounded-xl border px-4 py-4 text-left transition ${
+                  mode === "normal"
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-slate-800 bg-slate-950 hover:border-slate-700"
+                }`}
+              >
+
+                <div className="text-lg mb-2">
+                  🎤
+                </div>
+
+                <p className="text-sm font-semibold text-white">
+                  Speech & Text
+                </p>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Voice and typing
+                </p>
+
+              </button>
+
+              {/* ASL */}
+              <button
+                type="button"
+                onClick={() => setMode("asl")}
+                className={`rounded-xl border px-4 py-4 text-left transition ${
+                  mode === "asl"
+                    ? "border-purple-500 bg-purple-500/10"
+                    : "border-slate-800 bg-slate-950 hover:border-slate-700"
+                }`}
+              >
+
+                <div className="text-lg mb-2">
+                  🤟
+                </div>
+
+                <p className="text-sm font-semibold text-white">
+                  Sign Language
+                </p>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  ASL communication
+                </p>
+
+              </button>
+
+            </div>
+
+          </div>
+
+          {/* Join */}
+          <button
+            onClick={joinRoom}
+            className="w-full mt-6 bg-blue-600 hover:bg-blue-700 transition rounded-xl py-3 text-sm font-semibold text-white"
+          >
+            Join Room
+            <span className="ml-2">→</span>
+          </button>
+
+        </div>
+
+        <p className="text-center text-xs text-slate-600 mt-5">
+          SignBridge AI • Real-time communication
         </p>
-
-        <input
-          type="text"
-          placeholder="Your Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full mb-4 rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
-        />
-
-        <input
-          type="text"
-          placeholder="Room ID"
-          value={roomId}
-          onChange={(e) => setRoomId(e.target.value)}
-          className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
-        />
-
-        <button
-          onClick={joinRoom}
-          className="w-full mt-6 bg-green-600 hover:bg-green-700 transition rounded-xl py-3 font-semibold text-white"
-        >
-          Join Room
-        </button>
 
       </div>
 

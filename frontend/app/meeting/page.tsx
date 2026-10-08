@@ -8,14 +8,16 @@ import CameraPanel from "@/components/dashboard/CameraPanel";
 import TranslationPanel from "@/components/dashboard/TranslationPanel";
 import AvatarPanel from "@/components/dashboard/AvatarPanel";
 import SpeechPanel from "@/components/dashboard/SpeechPanel";
+import NormalMeeting from "@/components/dashboard/NormalMeeting";
 
 import { useTranslation } from "@/context/TranslationContext";
 
 export default function MeetingPage() {
   const searchParams = useSearchParams();
 
-  const roomId = searchParams.get("room") || "UNKNOWN";
-  const userName = searchParams.get("user") || "Guest";
+ const roomId = searchParams.get("room") || "UNKNOWN";
+const userName = searchParams.get("user") || "Guest";
+const mode = searchParams.get("mode") || "asl";
 
   // ============================================================
   // TRANSLATION CONTEXT
@@ -41,6 +43,10 @@ export default function MeetingPage() {
 
   const [messages, setMessages] = useState<string[]>([]);
   const [messageInput, setMessageInput] = useState("");
+
+  function addSpeechTranscript(text: string) {
+    setMessages((prev) => [...prev, `🎤 You: ${text}`]);
+  }
 
   const socketRef = useRef<WebSocket | null>(null);
 
@@ -135,8 +141,18 @@ export default function MeetingPage() {
             // Show received sign as detected word
             setDetectedWord(word);
 
-            // Add it to sentence
-            appendDetectedSign(word);
+            // Use the sender's full sentence snapshot when available.
+            // Older sign messages still work by appending the individual word.
+            if (typeof data.sentence === "string") {
+              setSentence(data.sentence);
+            } else {
+              appendDetectedSign(word);
+            }
+
+            setMessages((prev) => [
+      ...prev,
+      `🤟 ASL User: ${word}`,
+    ]);
           }
         }
 
@@ -158,6 +174,11 @@ export default function MeetingPage() {
 
             // Send received word/text to avatar
             setDetectedWord(text);
+
+            setMessages((prev) => [
+      ...prev,
+      `🎤 Speech: ${data.originalText || text}`,
+    ]);
           }
         }
 
@@ -281,199 +302,269 @@ export default function MeetingPage() {
   // UI
   // ============================================================
 
-  return (
-    <main className="min-h-screen bg-slate-950 text-white">
+ return (
+  <>
+    {mode === "normal" ? (
+      <NormalMeeting
+        roomId={roomId}
+        userName={userName}
+        connected={connected}
+        userCount={userCount}
+        messages={messages}
+        messageInput={messageInput}
+        setMessageInput={setMessageInput}
+        sendMessage={sendMessage}
+        sendRoomMessage={sendRoomMessage}
+        onSpeechTranscript={addSpeechTranscript}
+      />
+    ) : (
+      <main className="min-h-screen bg-slate-950 text-white">
 
-      {/* ===================================================== */}
-      {/* TOP BAR */}
-      {/* ===================================================== */}
+        {/* =====================================================
+            TOP BAR
+        ===================================================== */}
 
-      <TopBar />
+        <TopBar />
 
-      {/* ===================================================== */}
-      {/* ROOM INFORMATION */}
-      {/* ===================================================== */}
+        {/* =====================================================
+            ROOM INFORMATION
+        ===================================================== */}
 
-      <div className="px-5 pt-5">
+        <div className="px-5 pt-5">
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
 
-          <div className="grid grid-cols-4 gap-5">
+            <div className="grid grid-cols-4 gap-5">
 
-            {/* ROOM */}
+              {/* ROOM */}
 
-            <div>
-              <p className="text-slate-400 text-sm">
-                Room
-              </p>
+              <div>
+                <p className="text-slate-400 text-sm">
+                  Room
+                </p>
 
-              <p className="text-white text-lg font-bold mt-1">
-                {roomId}
-              </p>
-            </div>
+                <p className="text-white text-lg font-bold mt-1">
+                  {roomId}
+                </p>
+              </div>
 
-            {/* USER */}
+              {/* USER */}
 
-            <div>
-              <p className="text-slate-400 text-sm">
-                User
-              </p>
+              <div>
+                <p className="text-slate-400 text-sm">
+                  User
+                </p>
 
-              <p className="text-white text-lg font-bold mt-1">
-                {userName}
-              </p>
-            </div>
+                <p className="text-white text-lg font-bold mt-1">
+                  {userName}
+                </p>
+              </div>
 
-            {/* CONNECTION */}
+              {/* CONNECTION */}
 
-            <div>
-              <p className="text-slate-400 text-sm">
-                Connection
-              </p>
+              <div>
+                <p className="text-slate-400 text-sm">
+                  Connection
+                </p>
 
-              <p
-                className={`text-lg font-bold mt-1 ${
-                  connected
-                    ? "text-green-400"
-                    : "text-red-400"
-                }`}
-              >
-                <span className="mr-2">
-                  ●
-                </span>
+                <p
+                  className={`text-lg font-bold mt-1 ${
+                    connected
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  <span className="mr-2">
+                    ●
+                  </span>
 
-                {connected
-                  ? "Connected"
-                  : "Disconnected"}
-              </p>
-            </div>
+                  {connected
+                    ? "Connected"
+                    : "Disconnected"}
+                </p>
+              </div>
 
-            {/* USERS */}
+              {/* USERS */}
 
-            <div>
-              <p className="text-slate-400 text-sm">
-                Users
-              </p>
+              <div>
+                <p className="text-slate-400 text-sm">
+                  Users
+                </p>
 
-              <p className="text-white text-lg font-bold mt-1">
-                {userCount}
-              </p>
+                <p className="text-white text-lg font-bold mt-1">
+                  {userCount}
+                </p>
+              </div>
+
             </div>
 
           </div>
 
         </div>
 
+        {/* =====================================================
+            ROOM CHAT
+        ===================================================== */}
+
+        <div className="px-5 pt-5">
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+
+            <h2 className="text-xl font-bold mb-4">
+              Room Communication Test
+            </h2>
+
+            {/* CONVERSATION */}
+
+<div className="bg-slate-950 rounded-2xl border border-slate-800 p-5 min-h-[250px] max-h-[400px] overflow-y-auto mb-4">
+
+  {messages.length === 0 ? (
+    <div className="flex items-center justify-center h-[200px]">
+      <div className="text-center">
+
+        <div className="text-5xl mb-4">
+          💬
+        </div>
+
+        <p className="text-slate-300 font-medium">
+          No messages yet
+        </p>
+
+        <p className="text-slate-500 text-sm mt-1">
+          Start communicating with the other participant.
+        </p>
+
       </div>
+    </div>
+  ) : (
+    <div className="space-y-3">
 
-      {/* ===================================================== */}
-      {/* ROOM CHAT */}
-      {/* ===================================================== */}
+      {messages.map((message, index) => {
 
-      <div className="px-5 pt-5">
+        const isASL = message.startsWith("🤟");
+        const isSpeech = message.startsWith("🎤");
+        const isOutgoingSpeech = message.startsWith("🎤 You:");
+        const isText = message.startsWith("💬");
+        const isYou = message.startsWith("You:");
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        return (
+          <div
+            key={index}
+            className={`flex ${
+              isYou
+                ? "justify-end"
+                : "justify-start"
+            }`}
+          >
 
-          <h2 className="text-xl font-bold mb-4">
-            Room Communication Test
-          </h2>
+            <div
+              className={`max-w-[75%] rounded-2xl px-4 py-3 border ${
+                isYou || isOutgoingSpeech
+                  ? "bg-blue-600 border-blue-500"
+                  : "bg-slate-800 border-slate-700"
+              }`}
+            >
 
-          {/* MESSAGES */}
+              <div className="text-xs text-slate-400 mb-1">
+                {isASL
+                  ? "🤟 Sign Language"
+                  : isSpeech
+                  ? isOutgoingSpeech ? "🎤 Speech · You" : "🎤 Speech"
+                  : isText
+                  ? "💬 Text"
+                  : isYou
+                  ? "You"
+                  : "Message"}
+              </div>
 
-          <div className="bg-slate-950 rounded-xl p-4 min-h-[100px] mb-4">
-
-            {messages.length === 0 ? (
-              <p className="text-slate-500">
-                No messages yet...
+              <p className="text-white break-words">
+                {isOutgoingSpeech ? message.replace("🎤 You: ", "") : message}
               </p>
-            ) : (
-              messages.map((message, index) => (
-                <p
-                  key={index}
-                  className="text-slate-200 mb-2"
-                >
-                  {message}
-                </p>
-              ))
-            )}
+
+            </div>
+
+          </div>
+        );
+      })}
+
+    </div>
+  )}
+
+</div>
+
+            {/* INPUT */}
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) =>
+                  setMessageInput(e.target.value)
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    sendMessage();
+                  }
+                }}
+                placeholder="Type a test message..."
+                className="flex-1 rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
+              />
+
+              <SpeechPanel
+                sendRoomMessage={sendRoomMessage}
+                onTranscript={addSpeechTranscript}
+                disabled={!connected}
+              />
+
+              <button
+                onClick={sendMessage}
+                disabled={!connected}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold"
+              >
+                Send
+              </button>
+
+            </div>
 
           </div>
 
-          {/* INPUT */}
+        </div>
 
-          <div className="flex gap-3">
+        {/* =====================================================
+            EXISTING ASL MEETING AREA
+        ===================================================== */}
 
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) =>
-                setMessageInput(e.target.value)
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  sendMessage();
-                }
-              }}
-              placeholder="Type a test message..."
-              className="flex-1 rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
+        <div className="grid grid-cols-12 gap-5 p-5">
+
+          {/* CAMERA */}
+
+          <div className="col-span-8">
+
+            <CameraPanel
+              sendRoomMessage={sendRoomMessage}
             />
 
-            <button
-              onClick={sendMessage}
-              disabled={!connected}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold"
-            >
-              Send
-            </button>
+          </div>
+
+          {/* RIGHT SIDE */}
+
+          <div className="col-span-4 flex flex-col gap-5">
+
+            {/* AI TRANSLATION */}
+
+            <TranslationPanel />
+
+            {/* 3D AVATAR */}
+
+            <AvatarPanel />
 
           </div>
 
         </div>
 
-      </div>
-
-      {/* ===================================================== */}
-      {/* MAIN MEETING AREA */}
-      {/* ===================================================== */}
-
-      <div className="grid grid-cols-12 gap-5 p-5">
-
-        {/* ================================================= */}
-        {/* CAMERA */}
-        {/* ================================================= */}
-
-        <div className="col-span-8">
-
-          <CameraPanel
-            sendRoomMessage={sendRoomMessage}
-          />
-
-        </div>
-
-        {/* ================================================= */}
-        {/* RIGHT SIDE */}
-        {/* ================================================= */}
-
-        <div className="col-span-4 flex flex-col gap-5">
-
-          {/* AI TRANSLATION */}
-
-          <TranslationPanel />
-
-          {/* 3D AVATAR */}
-
-          <AvatarPanel />
-
-          {/* SPEECH */}
-
-          <SpeechPanel
-            sendRoomMessage={sendRoomMessage}
-          />
-
-        </div>
-
-      </div>
-
-    </main>
-  );
+      </main>
+    )}
+  </>
+);
 }

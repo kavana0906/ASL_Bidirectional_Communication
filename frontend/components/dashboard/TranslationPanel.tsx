@@ -4,6 +4,7 @@ import { Trash2, Volume2 } from "lucide-react";
 
 import { speak } from "@/services/speech";
 import { useTranslation } from "@/context/TranslationContext";
+import { browserLocale } from "@/services/signLanguage";
 
 export default function TranslationPanel() {
   const {
@@ -12,6 +13,8 @@ export default function TranslationPanel() {
     confidence,
     speechText,
     clearSentence,
+    translatedText,
+    conversationLanguage,
   } = useTranslation();
 
   return (
@@ -73,6 +76,25 @@ export default function TranslationPanel() {
             Clear
           </button>
         </div>
+      </div>
+
+      <div className="bg-slate-800 rounded-2xl p-5 mb-4">
+        <p className="text-gray-400 text-sm mb-2">
+          Selected-language output
+        </p>
+
+        <p className="text-xl">
+          {translatedText || "Waiting for a detected sign..."}
+        </p>
+
+        <button
+          onClick={() => speak(translatedText, browserLocale(conversationLanguage))}
+          disabled={!translatedText}
+          className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 py-3 transition"
+        >
+          <Volume2 size={18} />
+          Speak Output
+        </button>
       </div>
 
       {/* Confidence */}

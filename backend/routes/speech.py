@@ -44,9 +44,15 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 
 @router.post("/speech-to-text")
 async def speech_to_text(
-    audio: UploadFile = File(...)
+    audio: UploadFile = File(...),
+    language: str = Form("en"),
 ):
     try:
+        if language not in {"en", "hi", "kn"}:
+            raise HTTPException(
+                status_code=422,
+                detail="Supported languages are English, Hindi, and Kannada.",
+            )
         file_id = str(uuid.uuid4())
 
         # Keep the original extension
@@ -67,7 +73,7 @@ async def speech_to_text(
         print(f"Transcribing audio: {audio_path}")
 
         # Whisper transcription
-        text = transcribe_audio(audio_path)
+        text = transcribe_audio(audio_path, language)
 
         print(f"Transcription: {text}")
 
@@ -78,7 +84,9 @@ async def speech_to_text(
             pass
 
         return {
-            "text": text
+            "text": text,
+            "source_language": language,
+            "output_language": "en",
         }
 
     except Exception as e:

@@ -14,13 +14,11 @@ import {
 } from "@/context/TranslationContext";
 
 import {
-  startRecording,
-  stopRecording,
+  startContinuousRecording,
+  stopContinuousRecording,
 } from "@/services/audioRecorder";
 
-import {
-  speechToText,
-} from "@/services/api";
+import { speechToText, translateText } from "@/services/api";
 
 
 // ============================================================
@@ -29,6 +27,8 @@ import {
 
 interface SpeechPanelProps {
   sendRoomMessage: (data: object) => void;
+  onTranscript: (text: string) => void;
+  disabled?: boolean;
 }
 
 
@@ -38,12 +38,14 @@ interface SpeechPanelProps {
 
 export default function SpeechPanel({
   sendRoomMessage,
+  onTranscript,
+  disabled = false,
 }: SpeechPanelProps) {
 
   const {
-    speechText,
     setSpeechText,
     setSentence,
+    setConversationLanguage,
   } = useTranslation();
 
 
@@ -52,207 +54,108 @@ export default function SpeechPanel({
     setIsListening,
   ] = useState(false);
 
+  const [isLive, setIsLive] = useState(false);
 
-  // ============================================================
-  // START LISTENING
-  // ============================================================
+  const [language, setLanguage] = useState<"en" | "hi" | "kn">("en");
 
-  async function startListening() {
+  async function handleAudio(audioBlob: Blob) {
+    console.log("🔥 handleAudio called - language:", language);
+  const result = await speechToText(audioBlob, language);
+  const spokenText = result.text || "";
 
+  if (!spokenText.trim()) return;
+
+  let englishText = spokenText;
+
+  // Translate Hindi/Kannada speech into English
+  if (language === "hi" || language === "kn") {
+    const translation = await translateText(
+      spokenText,
+      language
+    );
+
+    englishText = translation.text || spokenText;
+
+    console.log("Original speech:", spokenText);
+    console.log("English translation:", englishText);
+  }
+
+  // Display the original spoken text
+  setSpeechText(spokenText);
+  onTranscript(spokenText);
+
+  // Use English for the ASL pipeline
+  setSentence(englishText);
+
+  sendRoomMessage({
+    type: "speech",
+    text: englishText,
+    originalText: spokenText,
+    language,
+    translatedTo: "en",
+  });
+}
+
+
+  async function startLiveConversation() {
     try {
-
-      await startRecording();
-
       setIsListening(true);
-
+      setIsLive(true);
+      await startContinuousRecording(async (audioBlob) => {
+        try {
+          await handleAudio(audioBlob);
+        } catch (error) {
+          console.error("Live speech-to-text error:", error);
+        }
+      });
     } catch (error) {
-
-      console.error(
-        "Microphone error:",
-        error
-      );
-
-      alert(
-        "Unable to access microphone."
-      );
-
+      console.error("Microphone error:", error);
+      setIsListening(false);
+      setIsLive(false);
     }
   }
 
-
-  // ============================================================
-  // STOP LISTENING
-  // ============================================================
-
-  async function stopListening() {
-
-    try {
-
-      const audioBlob =
-        await stopRecording();
-
-
-      setIsListening(false);
-
-
-      console.log(
-        "Sending audio to Whisper..."
-      );
-
-
-      // ========================================================
-      // WHISPER
-      // ========================================================
-
-      const result =
-        await speechToText(
-          audioBlob
-        );
-
-
-      console.log(
-        "Whisper result:",
-        result
-      );
-
-
-      const text =
-        result.text || "";
-
-
-      // ========================================================
-      // UPDATE LOCAL UI
-      // ========================================================
-
-      setSpeechText(text);
-
-      setSentence(text);
-
-
-      // ========================================================
-      // SEND SPEECH TO OTHER USER
-      // ========================================================
-
-      if (text.trim()) {
-
-        sendRoomMessage({
-
-          type: "speech",
-
-          text: text,
-
-        });
-
-
-        console.log(
-          "Speech text sent to room:",
-          text
-        );
-
-      }
-
-    } catch (error) {
-
-      console.error(
-        "Speech-to-text error:",
-        error
-      );
-
-      setIsListening(false);
-
-    }
+  function stopLiveConversation() {
+    stopContinuousRecording();
+    setIsListening(false);
+    setIsLive(false);
   }
 
-
-  // ============================================================
-  // UI
-  // ============================================================
 
   return (
-
-    <div className="bg-slate-900 rounded-3xl border border-slate-800 h-full p-6">
-
-      {/* ====================================================== */}
-      {/* HEADER */}
-      {/* ====================================================== */}
-
-      <div className="flex justify-between mb-6">
-
-        <h2 className="text-2xl font-bold">
-          Speech Input
-        </h2>
-
-
-        <span
-          className={`font-semibold ${
-            isListening
-              ? "text-green-400"
-              : "text-red-400"
-          }`}
-        >
-          {isListening
-            ? "Listening..."
-            : "Stopped"}
-        </span>
-
-      </div>
-
-
-      {/* ====================================================== */}
-      {/* SPEECH TEXT */}
-      {/* ====================================================== */}
-
-      <div className="bg-slate-800 rounded-2xl p-6 h-[220px] overflow-auto">
-
-        <p className="text-gray-400 mb-3">
-          Live Speech
-        </p>
-
-        <p className="text-2xl leading-relaxed">
-          {speechText ||
-            "Start speaking..."}
-        </p>
-
-      </div>
-
-
-      {/* ====================================================== */}
-      {/* CONTROLS */}
-      {/* ====================================================== */}
-
-      <div className="flex gap-4 mt-6">
-
-        {/* START */}
-
-        <button
-          onClick={startListening}
-          disabled={isListening}
-          className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed py-3 rounded-xl flex items-center justify-center gap-2"
-        >
-
-          <Mic size={18} />
-
-          Start
-
-        </button>
-
-
-        {/* STOP */}
-
-        <button
-          onClick={stopListening}
-          disabled={!isListening}
-          className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed py-3 rounded-xl flex items-center justify-center gap-2"
-        >
-
-          <Square size={18} />
-
-          Stop
-
-        </button>
-
-      </div>
-
+    <div className="flex gap-2">
+      <label className="sr-only" htmlFor="spoken-language">
+        Spoken language
+      </label>
+      <select
+        id="spoken-language"
+        value={language}
+        onChange={(event) => {
+          const nextLanguage = event.target.value as "en" | "hi" | "kn";
+          setLanguage(nextLanguage);
+          setConversationLanguage(nextLanguage);
+        }}
+        disabled={isListening || disabled}
+        aria-label="Spoken language"
+        className="min-w-32 rounded-xl bg-slate-800 border border-slate-700 px-3 py-3 text-white disabled:opacity-60"
+      >
+        <option value="en">English</option>
+        <option value="hi">Hindi — हिन्दी</option>
+        <option value="kn">Kannada — ಕನ್ನಡ</option>
+      </select>
+      <button
+        type="button"
+        onClick={isLive ? stopLiveConversation : startLiveConversation}
+        disabled={disabled && !isLive}
+        aria-label={isLive ? "Stop speaking" : "Start speaking"}
+        title={isLive ? "Stop speaking" : "Speak in the selected language"}
+        className={`flex min-w-32 items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition disabled:cursor-not-allowed disabled:bg-gray-600 ${
+          isLive ? "bg-red-600 hover:bg-red-700" : "bg-slate-700 hover:bg-slate-600"
+        }`}
+      >
+        {isLive ? <Square size={18} /> : <Mic size={18} />}
+        {isLive ? "Stop" : "Speak"}
+      </button>
     </div>
   );
 }

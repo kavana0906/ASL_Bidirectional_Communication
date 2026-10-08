@@ -97,7 +97,10 @@ print("Whisper loaded successfully!")
 # TRANSCRIBE AUDIO
 # ============================================================
 
-def transcribe_audio(audio_path: str) -> str:
+def transcribe_audio(
+    audio_path: str,
+    language: str = "en",
+) -> str:
 
     print(f"Transcribing audio: {audio_path}")
 
@@ -110,12 +113,16 @@ def transcribe_audio(audio_path: str) -> str:
     # Create temporary WAV file
     # --------------------------------------------------------
 
-    with tempfile.NamedTemporaryFile(
-        suffix=".wav",
-        delete=False
-    ) as temp_file:
+    input_is_wav = audio_path.lower().endswith(".wav")
+    wav_path = audio_path
 
-        wav_path = temp_file.name
+    if not input_is_wav:
+        with tempfile.NamedTemporaryFile(
+            suffix=".wav",
+            delete=False
+        ) as temp_file:
+
+            wav_path = temp_file.name
 
     try:
 
@@ -123,39 +130,39 @@ def transcribe_audio(audio_path: str) -> str:
         # WEBM -> WAV
         # ====================================================
 
-        command = [
-            FFMPEG_PATH,
-            "-y",
-            "-i",
-            audio_path,
-            "-ar",
-            "16000",
-            "-ac",
-            "1",
-            "-sample_fmt",
-            "s16",
-            wav_path,
-        ]
+        if not input_is_wav:
+            command = [
+                FFMPEG_PATH,
+                "-y",
+                "-i",
+                audio_path,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-sample_fmt",
+                "s16",
+                wav_path,
+            ]
 
-        print("Converting audio with FFmpeg...")
+            print("Converting audio with FFmpeg...")
 
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        if result.returncode != 0:
-
-            print("FFmpeg error:")
-            print(result.stderr)
-
-            raise RuntimeError(
-                "FFmpeg failed to convert the audio."
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
             )
 
-        print(f"WAV created: {wav_path}")
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"FFmpeg failed (exit code {result.returncode}).\n"
+                    f"Executable: {FFMPEG_PATH}\n"
+                    "Output:\n"
+                    f"{result.stderr[-1500:]}"
+                )
+
+            print(f"WAV created: {wav_path}")
 
         # ====================================================
         # LOAD WAV
@@ -202,8 +209,16 @@ def transcribe_audio(audio_path: str) -> str:
 
         with torch.no_grad():
 
+            # Translate Hindi/Kannada speech into English for the avatar.
+            task = "transcribe" if language == "en" else "translate"
+            forced_decoder_ids = processor.get_decoder_prompt_ids(
+                language=language,
+                task=task,
+            )
+
             predicted_ids = model.generate(
-                input_features
+                input_features,
+                forced_decoder_ids=forced_decoder_ids,
             )
 
         # ====================================================
@@ -225,7 +240,7 @@ def transcribe_audio(audio_path: str) -> str:
         # DELETE TEMPORARY WAV
         # ====================================================
 
-        if os.path.exists(wav_path):
+        if not input_is_wav and os.path.exists(wav_path):
             os.remove(wav_path)
 
             print(

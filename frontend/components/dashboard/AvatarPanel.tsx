@@ -1,13 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AvatarScene from "@/components/avatar/AvatarScene";
 import { useTranslation } from "@/context/TranslationContext";
 
+const supportedSigns = new Set([
+  "bad", "good", "hello", "help", "less", "like", "love", "more", "name", "no", "please", "sorry", "start", "stop", "thank_you", "understand", "we", "when", "where", "why", "yes", "you"
+]);
+
 export default function AvatarPanel() {
-  const { detectedWord } = useTranslation();
+  const { detectedWord, sentence } = useTranslation();
 
   const [playTrigger, setPlayTrigger] = useState(0);
+  const [avatarSign, setAvatarSign] = useState("Waiting...");
+
+  useEffect(() => {
+    const normalized = sentence
+      .toLowerCase()
+      .replace(/thank\s+you/g, "thank_you")
+      .replace(/[^a-z_\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => supportedSigns.has(word));
+
+    if (normalized.length === 0) return;
+
+    let index = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const playNext = () => {
+      setAvatarSign(normalized[index]);
+      setPlayTrigger((previous) => previous + 1);
+      index += 1;
+      if (index < normalized.length) timer = setTimeout(playNext, 3000);
+    };
+
+    playNext();
+    return () => { if (timer) clearTimeout(timer); };
+  }, [sentence]);
 
   const handleGenerateSign = () => {
     if (
@@ -18,6 +47,7 @@ export default function AvatarPanel() {
       return;
     }
 
+    setAvatarSign(detectedWord);
     setPlayTrigger((prev) => prev + 1);
   };
 
@@ -46,7 +76,7 @@ export default function AvatarPanel() {
       <div className="h-[450px] rounded-2xl overflow-hidden bg-slate-800">
 
         <AvatarScene
-          currentSign={detectedWord}
+          currentSign={avatarSign}
           playTrigger={playTrigger}
         />
 
@@ -60,7 +90,7 @@ export default function AvatarPanel() {
         </p>
 
         <h3 className="text-2xl font-bold text-blue-400">
-          {detectedWord || "Waiting..."}
+          {avatarSign}
         </h3>
 
       </div>

@@ -4,7 +4,6 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 
 import AvatarModel from "./AvatarModel";
-import AnimationController from "./AnimationController";
 
 interface Props {
   currentSign: string;
@@ -12,15 +11,28 @@ interface Props {
 }
 
 const availableSigns = new Set([
+  "bad",
+  "good",
   "hello",
+  "help",
+  "less",
+  "like",
   "love",
   "more",
   "name",
   "no",
   "please",
   "sorry",
-  "thank_you",
+  "start",
   "stop",
+  "thank_you",
+  "understand",
+  "we",
+  "when",
+  "where",
+  "why",
+  "yes",
+  "you",
 ]);
 
 export default function AvatarScene({
@@ -73,14 +85,9 @@ export default function AvatarScene({
 
       <AvatarModel
         modelPath={modelPath}
+        playTrigger={playTrigger}
+        shouldAnimate={shouldAnimate}
       />
-
-      {shouldAnimate && (
-        <AnimationController
-          modelPath={modelPath}
-          playTrigger={playTrigger}
-        />
-      )}
 
       <OrbitControls
         enableRotate={true}
