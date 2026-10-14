@@ -298,12 +298,25 @@ landmarker_options = (
     )
 )
 
-landmarker = (
-    mp.tasks.vision.HandLandmarker
-    .create_from_options(
+class SignRecognitionUnavailable(RuntimeError):
+    """Raised when the native hand-landmark runtime cannot be loaded."""
+
+
+landmarker_initialization_error = None
+try:
+    landmarker = mp.tasks.vision.HandLandmarker.create_from_options(
         landmarker_options
     )
-)
+except OSError as error:
+    # Keep speech, text, and room features available when Windows application
+    # control blocks MediaPipe's native DLL. Sign requests return HTTP 503.
+    landmarker = None
+    landmarker_initialization_error = error
+    print(f"ASL hand landmarking unavailable: {error}")
+
+
+def is_sign_recognition_available():
+    return landmarker is not None
 
 
 # ============================================================
@@ -354,6 +367,12 @@ def normalize_hand(hand):
 # ============================================================
 
 def extract_features(image):
+
+    if landmarker is None:
+        raise SignRecognitionUnavailable(
+            "ASL recognition is unavailable because the MediaPipe native "
+            f"library could not load: {landmarker_initialization_error}"
+        )
 
     rgb = cv2.cvtColor(
         image,

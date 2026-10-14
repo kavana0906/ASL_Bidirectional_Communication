@@ -9,6 +9,9 @@ import TranslationPanel from "@/components/dashboard/TranslationPanel";
 import AvatarPanel from "@/components/dashboard/AvatarPanel";
 import SpeechPanel from "@/components/dashboard/SpeechPanel";
 import NormalMeeting from "@/components/dashboard/NormalMeeting";
+import { roomSocketUrl } from "@/services/api";
+import { speak } from "@/services/speech";
+import { browserLocale, translatePhrase } from "@/services/signLanguage";
 
 import { useTranslation } from "@/context/TranslationContext";
 
@@ -28,6 +31,8 @@ const mode = searchParams.get("mode") || "asl";
     appendDetectedSign,
     setSpeechText,
     setSentence,
+    setTranslatedText,
+    conversationLanguage,
   } = useTranslation();
 
   // ============================================================
@@ -43,12 +48,15 @@ const mode = searchParams.get("mode") || "asl";
 
   const [messages, setMessages] = useState<string[]>([]);
   const [messageInput, setMessageInput] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   function addSpeechTranscript(text: string) {
     setMessages((prev) => [...prev, `🎤 You: ${text}`]);
   }
 
   const socketRef = useRef<WebSocket | null>(null);
+  const conversationLanguageRef = useRef(conversationLanguage);
+  conversationLanguageRef.current = conversationLanguage;
 
   // ============================================================
   // WEBSOCKET CONNECTION
@@ -63,9 +71,7 @@ const mode = searchParams.get("mode") || "asl";
     console.log(`Connecting to room: ${roomId}`);
     console.log(`User: ${userName}`);
 
-    const socket = new WebSocket(
-      `ws://127.0.0.1:8000/ws/${roomId}`
-    );
+    const socket = new WebSocket(roomSocketUrl(roomId));
 
     socketRef.current = socket;
 
@@ -126,6 +132,10 @@ const mode = searchParams.get("mode") || "asl";
             ...prev,
             `${data.user}: ${data.message}`,
           ]);
+          setSentence(data.message || "");
+          setDetectedWord(data.message || "");
+          setTranslatedText(translatePhrase(data.message || "", conversationLanguageRef.current));
+          speak(translatePhrase(data.message || "", conversationLanguageRef.current), browserLocale(conversationLanguageRef.current));
         }
 
         // ======================================================
@@ -140,6 +150,9 @@ const mode = searchParams.get("mode") || "asl";
           if (word) {
             // Show received sign as detected word
             setDetectedWord(word);
+            const signSentence = typeof data.sentence === "string" ? data.sentence : word;
+            setTranslatedText(translatePhrase(signSentence, conversationLanguageRef.current));
+            speak(translatePhrase(word.replace(/_/g, " "), conversationLanguageRef.current), browserLocale(conversationLanguageRef.current));
 
             // Use the sender's full sentence snapshot when available.
             // Older sign messages still work by appending the individual word.
@@ -168,12 +181,14 @@ const mode = searchParams.get("mode") || "asl";
           if (text) {
             // Show received speech
             setSpeechText(text);
+            setTranslatedText(translatePhrase(text, conversationLanguageRef.current));
 
             // Add speech to sentence
             setSentence(text);
 
             // Send received word/text to avatar
             setDetectedWord(text);
+            speak(translatePhrase(text, conversationLanguageRef.current), browserLocale(conversationLanguageRef.current));
 
             setMessages((prev) => [
       ...prev,
@@ -240,6 +255,7 @@ const mode = searchParams.get("mode") || "asl";
     appendDetectedSign,
     setSpeechText,
     setSentence,
+    setTranslatedText,
   ]);
 
   // ============================================================
@@ -288,6 +304,9 @@ const mode = searchParams.get("mode") || "asl";
     socketRef.current.send(
       JSON.stringify(message)
     );
+    setSentence(messageInput);
+    setDetectedWord(messageInput);
+    setTranslatedText(translatePhrase(messageInput, conversationLanguage));
 
     // Show our own message immediately
     setMessages((prev) => [
@@ -296,6 +315,14 @@ const mode = searchParams.get("mode") || "asl";
     ]);
 
     setMessageInput("");
+  }
+
+  async function copyInviteLink() {
+    const inviteUrl = new URL("/join-room", window.location.origin);
+    inviteUrl.searchParams.set("room", roomId);
+    await navigator.clipboard.writeText(inviteUrl.toString());
+    setInviteCopied(true);
+    window.setTimeout(() => setInviteCopied(false), 2000);
   }
 
   // ============================================================
@@ -346,6 +373,16 @@ const mode = searchParams.get("mode") || "asl";
                 <p className="text-white text-lg font-bold mt-1">
                   {roomId}
                 </p>
+              </div>
+
+              <div className="col-span-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void copyInviteLink()}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+                >
+                  {inviteCopied ? "Invite link copied" : "Copy invite link"}
+                </button>
               </div>
 
               {/* USER */}

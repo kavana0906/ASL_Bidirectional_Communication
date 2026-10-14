@@ -15,6 +15,7 @@ export default function TranslationPanel() {
     clearSentence,
     translatedText,
     conversationLanguage,
+    setConversationLanguage,
   } = useTranslation();
 
   return (
@@ -82,6 +83,17 @@ export default function TranslationPanel() {
         <p className="text-gray-400 text-sm mb-2">
           Selected-language output
         </p>
+
+        <select
+          value={conversationLanguage}
+          onChange={(event) => setConversationLanguage(event.target.value as "en" | "hi" | "kn")}
+          aria-label="Translation output language"
+          className="mb-3 rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
+        >
+          <option value="en">English</option>
+          <option value="hi">Hindi — हिन्दी</option>
+          <option value="kn">Kannada — ಕನ್ನಡ</option>
+        </select>
 
         <p className="text-xl">
           {translatedText || "Waiting for a detected sign..."}

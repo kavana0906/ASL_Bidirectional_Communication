@@ -19,6 +19,7 @@ import {
 } from "@/services/audioRecorder";
 
 import { speechToText, translateText } from "@/services/api";
+import { translatePhrase } from "@/services/signLanguage";
 
 
 // ============================================================
@@ -46,6 +47,7 @@ export default function SpeechPanel({
     setSpeechText,
     setSentence,
     setConversationLanguage,
+    setTranslatedText,
   } = useTranslation();
 
 
@@ -86,6 +88,7 @@ export default function SpeechPanel({
 
   // Use English for the ASL pipeline
   setSentence(englishText);
+  setTranslatedText(translatePhrase(englishText, language));
 
   sendRoomMessage({
     type: "speech",

@@ -1,6 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import SpeechPanel from "@/components/dashboard/SpeechPanel";
+import CameraPanel from "@/components/dashboard/CameraPanel";
+import TranslationPanel from "@/components/dashboard/TranslationPanel";
+import AvatarPanel from "@/components/dashboard/AvatarPanel";
 
 type NormalMeetingProps = {
   roomId: string;
@@ -27,6 +31,16 @@ export default function NormalMeeting({
   sendRoomMessage,
   onSpeechTranscript,
 }: NormalMeetingProps) {
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  async function copyInviteLink() {
+    const inviteUrl = new URL("/join-room", window.location.origin);
+    inviteUrl.searchParams.set("room", roomId);
+    await navigator.clipboard.writeText(inviteUrl.toString());
+    setInviteCopied(true);
+    window.setTimeout(() => setInviteCopied(false), 2000);
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
 
@@ -41,6 +55,16 @@ export default function NormalMeeting({
               <p className="text-white text-lg font-bold mt-1">
                 {roomId}
               </p>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => void copyInviteLink()}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+              >
+                {inviteCopied ? "Invite link copied" : "Copy invite link"}
+              </button>
             </div>
 
             <div>
@@ -206,7 +230,17 @@ export default function NormalMeeting({
 
         </div>
 
-            </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-12">
+        <div className="xl:col-span-7">
+          <CameraPanel sendRoomMessage={sendRoomMessage} />
+        </div>
+        <div className="grid grid-cols-1 gap-5 xl:col-span-5">
+          <TranslationPanel />
+          <AvatarPanel />
+        </div>
+      </div>
 
     </main>
   );

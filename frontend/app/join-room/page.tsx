@@ -1,14 +1,21 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 export default function JoinRoomPage() {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
 
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
   const [mode, setMode] = useState<"normal" | "asl" | "">("");
+
+  useEffect(() => {
+    const room = new URLSearchParams(window.location.search).get("room");
+    if (room) setRoomId(room);
+  }, []);
 
   function joinRoom() {
     if (!name.trim() || !roomId.trim()) {
@@ -36,7 +43,12 @@ export default function JoinRoomPage() {
       <div className="w-full max-w-md">
 
         {/* Header */}
-        <div className="text-center mb-8">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.45, delay: reduceMotion ? 0 : 0.08 }}
+          className="mb-8 text-center"
+        >
 
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 mb-4">
             <span className="text-2xl">🌉</span>
@@ -50,10 +62,15 @@ export default function JoinRoomPage() {
             Enter the room details to continue
           </p>
 
-        </div>
+        </motion.div>
 
         {/* Form */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.5, delay: reduceMotion ? 0 : 0.18 }}
+          className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl"
+        >
 
           {/* Name */}
           <div className="mb-5">
@@ -102,10 +119,10 @@ export default function JoinRoomPage() {
               <button
                 type="button"
                 onClick={() => setMode("normal")}
-                className={`rounded-xl border px-4 py-4 text-left transition ${
+                className={`rounded-xl border px-4 py-4 text-left transition-all duration-200 ${
                   mode === "normal"
                     ? "border-blue-500 bg-blue-500/10"
-                    : "border-slate-800 bg-slate-950 hover:border-slate-700"
+                    : "border-slate-800 bg-slate-950 hover:-translate-y-1 hover:border-slate-600"
                 }`}
               >
 
@@ -127,10 +144,10 @@ export default function JoinRoomPage() {
               <button
                 type="button"
                 onClick={() => setMode("asl")}
-                className={`rounded-xl border px-4 py-4 text-left transition ${
+                className={`rounded-xl border px-4 py-4 text-left transition-all duration-200 ${
                   mode === "asl"
                     ? "border-purple-500 bg-purple-500/10"
-                    : "border-slate-800 bg-slate-950 hover:border-slate-700"
+                    : "border-slate-800 bg-slate-950 hover:-translate-y-1 hover:border-slate-600"
                 }`}
               >
 
@@ -155,13 +172,13 @@ export default function JoinRoomPage() {
           {/* Join */}
           <button
             onClick={joinRoom}
-            className="w-full mt-6 bg-blue-600 hover:bg-blue-700 transition rounded-xl py-3 text-sm font-semibold text-white"
+            className="mt-6 w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition duration-200 hover:scale-[1.02] hover:bg-blue-700 active:scale-[0.98]"
           >
             Join Room
             <span className="ml-2">→</span>
           </button>
 
-        </div>
+        </motion.div>
 
         <p className="text-center text-xs text-slate-600 mt-5">
           SignBridge AI • Real-time communication

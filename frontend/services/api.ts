@@ -1,4 +1,28 @@
-const API_URL = "http://127.0.0.1:8000";
+// Set NEXT_PUBLIC_API_URL when the frontend and API are hosted separately.
+// Otherwise, use the page's hostname so other devices on the same network can
+// reach the API through the machine hosting the frontend.
+function getApiBaseUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (configuredUrl) return configuredUrl.replace(/\/$/, "");
+  if (typeof window === "undefined") return "http://localhost:8000";
+  return `${window.location.protocol}//${window.location.hostname}:8000`;
+}
+
+const API_URL = getApiBaseUrl();
+
+export class SignPredictionError extends Error {
+  constructor(public readonly status: number, detail: string) {
+    super(`Sign prediction failed (${status}): ${detail}`);
+    this.name = "SignPredictionError";
+  }
+}
+
+export function roomSocketUrl(roomId: string) {
+  const baseUrl = getApiBaseUrl();
+  const socketProtocol = baseUrl.startsWith("https:") ? "wss:" : "ws:";
+  const socketHost = baseUrl.replace(/^https?:/, "");
+  return `${socketProtocol}${socketHost}/ws/${encodeURIComponent(roomId)}`;
+}
 
 export async function checkBackend() {
   const response = await fetch(`${API_URL}/health`);
@@ -23,7 +47,15 @@ export async function predictSign(frameBlobs: Blob[]) {
   });
 
   if (!response.ok) {
-    throw new Error("Prediction failed");
+    const responseText = await response.text();
+    let detail = responseText;
+    try {
+      const body = JSON.parse(responseText);
+      detail = body.detail || responseText;
+    } catch {
+      // Keep the plain response text when the API did not return JSON.
+    }
+    throw new SignPredictionError(response.status, detail);
   }
 
   return response.json();

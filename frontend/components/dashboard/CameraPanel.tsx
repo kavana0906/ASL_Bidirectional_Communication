@@ -20,6 +20,7 @@ import {
 
 import {
   predictSign,
+  SignPredictionError,
 } from "@/services/api";
 
 import {
@@ -51,9 +52,13 @@ export default function CameraPanel({
   // Prevents the same consecutive sign from being
   // added to the sentence or sent to the room repeatedly.
   const lastEmittedSignRef = useRef<string | null>(null);
+  const predictionBusyRef = useRef(false);
+  const predictionUnavailableRef = useRef(false);
+  const predictSequenceRef = useRef<() => Promise<void>>(async () => {});
 
   const [isRunning, setIsRunning] = useState(false);
   const [isPredicting, setIsPredicting] = useState(false);
+  const [predictionError, setPredictionError] = useState("");
 
   const {
     setDetectedWord,
@@ -70,6 +75,8 @@ export default function CameraPanel({
 
   async function startCamera() {
     try {
+      predictionUnavailableRef.current = false;
+      setPredictionError("");
       const stream =
         await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -80,6 +87,7 @@ export default function CameraPanel({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
 
       setIsRunning(true);
@@ -115,12 +123,15 @@ export default function CameraPanel({
     if (
       !videoRef.current ||
       !isRunning ||
-      isPredicting
+      predictionUnavailableRef.current ||
+      predictionBusyRef.current
     ) {
       return;
     }
 
     try {
+      setPredictionError("");
+      predictionBusyRef.current = true;
       setIsPredicting(true);
 
       // Capture chronological frames.
@@ -181,6 +192,13 @@ export default function CameraPanel({
           )
         );
 
+        const spokenWord = translateSign(prediction, conversationLanguage)
+          .replace(/_/g, " ");
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(spokenWord);
+        utterance.lang = { en: "en-US", hi: "hi-IN", kn: "kn-IN" }[conversationLanguage];
+        window.speechSynthesis.speak(utterance);
+
         // ======================================================
         // SEND SIGN TO OTHER USER
         // ======================================================
@@ -202,7 +220,14 @@ export default function CameraPanel({
         "Sign prediction error:",
         error
       );
+      setPredictionError(
+        error instanceof Error ? error.message : "Sign recognition failed."
+      );
+      if (error instanceof SignPredictionError && error.status === 503) {
+        predictionUnavailableRef.current = true;
+      }
     } finally {
+      predictionBusyRef.current = false;
       setIsPredicting(false);
     }
   }, [
@@ -216,6 +241,17 @@ export default function CameraPanel({
     conversationLanguage,
     sendRoomMessage,
   ]);
+
+  predictSequenceRef.current = predictSequence;
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const timer = window.setInterval(() => {
+      void predictSequenceRef.current();
+    }, 7000);
+    void predictSequenceRef.current();
+    return () => window.clearInterval(timer);
+  }, [isRunning]);
 
   // ============================================================
   // CAMERA CLEANUP
@@ -276,7 +312,8 @@ export default function CameraPanel({
 
         <button
           onClick={startCamera}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 transition"
+          disabled={isRunning}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Play size={18} />
           Start Camera
@@ -286,24 +323,28 @@ export default function CameraPanel({
 
         <button
           onClick={stopCamera}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 transition"
+          disabled={!isRunning}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Square size={18} />
           Stop
         </button>
 
-        {/* READ SIGN */}
-
-        <button
-          onClick={predictSequence}
-          disabled={!isRunning || isPredicting}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-green-600 hover:bg-green-700 transition disabled:bg-gray-600 disabled:cursor-not-allowed"
-        >
-          {isPredicting
-            ? "Reading Sign..."
-            : "Read 60-Frame Sign"}
-        </button>
+        <p className="text-sm text-slate-300" aria-live="polite">
+          {predictionUnavailableRef.current
+            ? "ASL recognition is unavailable"
+            : isPredicting
+              ? "Recognizing sign…"
+              : isRunning
+                ? "Live recognition is active"
+                : "Start the camera for live recognition"}
+        </p>
       </div>
+      {predictionError ? (
+        <p role="alert" className="px-5 pb-5 text-sm text-amber-300">
+          {predictionError}
+        </p>
+      ) : null}
     </div>
   );
 }

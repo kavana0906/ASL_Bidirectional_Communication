@@ -49,12 +49,12 @@ export default function AvatarScene({
   const isWaiting =
     normalizedSign.startsWith("waiting");
 
-  const hasAvatar =
+  const hasSignAvatar =
     availableSigns.has(normalizedSign);
 
-  // If sign has no GLB, keep showing HELLO avatar
+  // Keep the HELLO model visible in its idle pose before the first sign.
   const modelSign =
-    !isWaiting && hasAvatar
+    !isWaiting && hasSignAvatar
       ? normalizedSign
       : "hello";
 
@@ -62,8 +62,8 @@ export default function AvatarScene({
     `/models/remy_asl_${modelSign}.glb`;
 
   // Only play animation when the sign has its own avatar
-  const shouldAnimate =
-    !isWaiting && hasAvatar;
+  const shouldAnimate = !isWaiting && hasSignAvatar;
+  const shouldRenderAvatar = isWaiting || hasSignAvatar;
 
   console.log("Current sign:", currentSign);
   console.log("Avatar model:", modelPath);
@@ -83,11 +83,13 @@ export default function AvatarScene({
         intensity={2}
       />
 
-      <AvatarModel
-        modelPath={modelPath}
-        playTrigger={playTrigger}
-        shouldAnimate={shouldAnimate}
-      />
+      {shouldRenderAvatar ? (
+        <AvatarModel
+          modelPath={modelPath}
+          playTrigger={playTrigger}
+          shouldAnimate={shouldAnimate}
+        />
+      ) : null}
 
       <OrbitControls
         enableRotate={true}

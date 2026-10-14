@@ -9,6 +9,13 @@ export function translateSign(sign: string, language: ConversationLanguage) {
   return language === "en" ? sign : translations[language][sign] || sign;
 }
 
+export function translatePhrase(text: string, language: ConversationLanguage) {
+  if (language === "en") return text;
+  return text.replace(/\bthank\s+you\b|\b[a-z]+\b/gi, (word) =>
+    translateSign(word.toUpperCase(), language)
+  );
+}
+
 export function browserLocale(language: ConversationLanguage) {
   return { en: "en-US", hi: "hi-IN", kn: "kn-IN" }[language];
 }

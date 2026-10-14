@@ -15,6 +15,7 @@ type TranslationContextType = {
   setSentence: (sentence: string) => void;
   setConfidence: (confidence: number) => void;
   setSpeechText: (text: string) => void;
+  setTranslatedText: (text: string) => void;
   appendDetectedSign: (sign: string) => void;
   clearSentence: () => void;
   appendTranslatedSign: (sign: string) => void;
@@ -67,6 +68,7 @@ export function TranslationProvider({
     setSentence,
     setConfidence,
     setSpeechText,
+    setTranslatedText,
     appendDetectedSign,
     clearSentence,
     appendTranslatedSign,

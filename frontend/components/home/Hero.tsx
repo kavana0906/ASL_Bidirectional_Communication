@@ -7,7 +7,7 @@ export default function Hero() {
   const router = useRouter();
 
   return (
-    <section className="relative flex flex-col items-center justify-center h-[85vh] overflow-hidden text-center text-white">
+    <section id="home" className="scroll-mt-24 relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden px-5 py-20 text-center text-white">
 
       {/* Background Glow */}
       <div className="absolute w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[150px]" />
@@ -41,8 +41,8 @@ export default function Hero() {
         transition={{ delay: 0.5 }}
         className="z-10 mt-6 max-w-3xl text-xl text-slate-300"
       >
-        Real-time bidirectional sign language translation using AI,
-        Speech Recognition and a 3D Avatar.
+        A communication prototype that connects supported ASL signs with speech,
+        text, and a 3D signing avatar.
       </motion.p>
 
       {/* Buttons */}

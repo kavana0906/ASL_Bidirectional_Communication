@@ -2,7 +2,10 @@ from typing import List
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from backend.services.sign_services import predict_frame_sequence
+from backend.services.sign_services import (
+    SignRecognitionUnavailable,
+    predict_frame_sequence,
+)
 
 
 router = APIRouter()
@@ -22,5 +25,7 @@ async def predict_sequence(frames: List[UploadFile] = File(...)):
     try:
         frame_bytes = [await frame.read() for frame in frames]
         return predict_frame_sequence(frame_bytes)
+    except SignRecognitionUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
