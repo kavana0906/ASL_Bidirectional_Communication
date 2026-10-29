@@ -72,8 +72,8 @@ export default function AvatarScene({
   return (
     <Canvas
       camera={{
-        position: [0, 1.5, 4],
-        fov: 45,
+        position: [0, 1.2, 3.4],
+        fov: 40,
       }}
     >
       <ambientLight intensity={2} />
@@ -94,6 +94,7 @@ export default function AvatarScene({
       <OrbitControls
         enableRotate={true}
         autoRotate={false}
+        target={[0, 0.25, 0]}
       />
     </Canvas>
   );

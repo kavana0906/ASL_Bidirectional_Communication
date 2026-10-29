@@ -1,22 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import TranslationPanel from "@/components/dashboard/TranslationPanel";
 import SpeechPanel from "@/components/dashboard/SpeechPanel";
 import CameraPanel from "@/components/dashboard/CameraPanel";
-import TranslationPanel from "@/components/dashboard/TranslationPanel";
-import AvatarPanel from "@/components/dashboard/AvatarPanel";
+import TopBar from "@/components/dashboard/TopBar";
+import ParticipantsButton from "@/components/dashboard/ParticipantsButton";
 
 type NormalMeetingProps = {
   roomId: string;
   userName: string;
   connected: boolean;
   userCount: number;
+  participants: string[];
   messages: string[];
   messageInput: string;
   setMessageInput: (value: string) => void;
   sendMessage: () => void;
   sendRoomMessage: (data: object) => void;
   onSpeechTranscript: (text: string) => void;
+  onLeaveRoom: () => void;
 };
 
 export default function NormalMeeting({
@@ -24,12 +27,14 @@ export default function NormalMeeting({
   userName,
   connected,
   userCount,
+  participants,
   messages,
   messageInput,
   setMessageInput,
   sendMessage,
   sendRoomMessage,
   onSpeechTranscript,
+  onLeaveRoom,
 }: NormalMeetingProps) {
   const [inviteCopied, setInviteCopied] = useState(false);
 
@@ -43,21 +48,40 @@ export default function NormalMeeting({
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
+      <TopBar />
 
       {/* Header */}
       <div className="px-5 pt-5">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
 
-          <div className="grid grid-cols-4 gap-5">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
+            Normal user
+          </p>
 
-            <div>
-              <p className="text-slate-400 text-sm">Room</p>
-              <p className="text-white text-lg font-bold mt-1">
-                {roomId}
-              </p>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid flex-1 grid-cols-2 gap-5 lg:grid-cols-4">
+              <div>
+                <p className="text-slate-400 text-sm">Room</p>
+                <p className="text-white text-lg font-bold mt-1">{roomId}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-sm">User</p>
+                <p className="text-white text-lg font-bold mt-1">{userName}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-sm">Connection</p>
+                <p className={`text-lg font-bold mt-1 ${connected ? "text-green-400" : "text-red-400"}`}>
+                  <span className="mr-2">●</span>{connected ? "Connected" : "Disconnected"}
+                </p>
+              </div>
+              <ParticipantsButton
+                userCount={userCount}
+                participants={participants}
+                currentUser={userName}
+              />
             </div>
 
-            <div className="flex items-end">
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={() => void copyInviteLink()}
@@ -65,43 +89,13 @@ export default function NormalMeeting({
               >
                 {inviteCopied ? "Invite link copied" : "Copy invite link"}
               </button>
-            </div>
-
-            <div>
-              <p className="text-slate-400 text-sm">User</p>
-              <p className="text-white text-lg font-bold mt-1">
-                {userName}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-slate-400 text-sm">
-                Connection
-              </p>
-
-              <p
-                className={`text-lg font-bold mt-1 ${
-                  connected
-                    ? "text-green-400"
-                    : "text-red-400"
-                }`}
+              <button
+                type="button"
+                onClick={onLeaveRoom}
+                className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/20"
               >
-                <span className="mr-2">●</span>
-
-                {connected
-                  ? "Connected"
-                  : "Disconnected"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-slate-400 text-sm">
-                Users
-              </p>
-
-              <p className="text-white text-lg font-bold mt-1">
-                {userCount}
-              </p>
+                Leave Room
+              </button>
             </div>
 
           </div>
@@ -110,17 +104,15 @@ export default function NormalMeeting({
       </div>
 
       {/* Communication Area */}
-      <div className="p-5">
+      <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-12">
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="order-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 xl:col-span-6">
 
           <h1 className="text-2xl font-bold mb-2">
-            Speech & Text Communication
+           ● Live Conversation
           </h1>
 
           <p className="text-slate-400 mb-6">
-            Communicate with the other participant using
-            speech and text.
           </p>
 
           {/* Conversation */}
@@ -228,18 +220,14 @@ export default function NormalMeeting({
 
           </div>
 
+          <TranslationPanel />
+
         </div>
 
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-12">
-        <div className="xl:col-span-7">
+        <div className="order-1 xl:col-span-6">
           <CameraPanel sendRoomMessage={sendRoomMessage} />
         </div>
-        <div className="grid grid-cols-1 gap-5 xl:col-span-5">
-          <TranslationPanel />
-          <AvatarPanel />
-        </div>
+
       </div>
 
     </main>

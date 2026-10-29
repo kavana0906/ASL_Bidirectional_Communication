@@ -33,6 +33,7 @@ build/
 # =========================
 hf_cache/
 .cache/
+backend/models/indictrans2/
 
 # =========================
 # Datasets

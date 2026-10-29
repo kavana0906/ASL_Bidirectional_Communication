@@ -17,11 +17,11 @@ export class SignPredictionError extends Error {
   }
 }
 
-export function roomSocketUrl(roomId: string) {
+export function roomSocketUrl(roomId: string, userName = "Guest") {
   const baseUrl = getApiBaseUrl();
   const socketProtocol = baseUrl.startsWith("https:") ? "wss:" : "ws:";
   const socketHost = baseUrl.replace(/^https?:/, "");
-  return `${socketProtocol}${socketHost}/ws/${encodeURIComponent(roomId)}`;
+  return `${socketProtocol}${socketHost}/ws/${encodeURIComponent(roomId)}?user=${encodeURIComponent(userName)}`;
 }
 
 export async function checkBackend() {
@@ -93,7 +93,8 @@ export async function speechToText(
 
 export async function translateText(
   text: string,
-  sourceLanguage: "hi" | "kn",
+  sourceLanguage: "en" | "hi" | "kn" | "auto",
+  targetLanguage: "en" | "hi" | "kn" = "en",
 ) {
   const response = await fetch(
     `${API_URL}/translation/translate`,
@@ -105,7 +106,7 @@ export async function translateText(
       body: JSON.stringify({
         text,
         source_language: sourceLanguage,
-        target_language: "en",
+        target_language: targetLanguage,
       }),
     }
   );

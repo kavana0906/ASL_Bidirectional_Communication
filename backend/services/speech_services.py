@@ -209,8 +209,9 @@ def transcribe_audio(
 
         with torch.no_grad():
 
-            # Translate Hindi/Kannada speech into English for the avatar.
-            task = "transcribe" if language == "en" else "translate"
+            # Keep the spoken words in their original language. The translation
+            # endpoint converts this transcript for the avatar and each listener.
+            task = "transcribe"
             forced_decoder_ids = processor.get_decoder_prompt_ids(
                 language=language,
                 task=task,

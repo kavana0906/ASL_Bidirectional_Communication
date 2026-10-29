@@ -16,14 +16,16 @@ class ConnectionManager:
         #     "room_id": [websocket1, websocket2, ...]
         # }
         self.rooms: Dict[str, List[WebSocket]] = {}
+        self.user_names: Dict[str, Dict[int, str]] = {}
 
-    async def connect(self, room_id: str, websocket: WebSocket):
+    async def connect(self, room_id: str, websocket: WebSocket, user_name: str):
         await websocket.accept()
 
         if room_id not in self.rooms:
             self.rooms[room_id] = []
 
         self.rooms[room_id].append(websocket)
+        self.user_names.setdefault(room_id, {})[id(websocket)] = user_name
 
     def disconnect(self, room_id: str, websocket: WebSocket):
 
@@ -32,9 +34,12 @@ class ConnectionManager:
             if websocket in self.rooms[room_id]:
                 self.rooms[room_id].remove(websocket)
 
+            self.user_names.get(room_id, {}).pop(id(websocket), None)
+
             # Delete empty rooms
             if len(self.rooms[room_id]) == 0:
                 del self.rooms[room_id]
+                self.user_names.pop(room_id, None)
 
     async def broadcast(
         self,
@@ -70,6 +75,9 @@ class ConnectionManager:
 
         return len(self.rooms[room_id])
 
+    def get_user_names(self, room_id: str) -> List[str]:
+        return list(self.user_names.get(room_id, {}).values())
+
 
 manager = ConnectionManager()
 
@@ -81,26 +89,40 @@ manager = ConnectionManager()
 @router.websocket("/ws/{room_id}")
 async def websocket_room(
     websocket: WebSocket,
-    room_id: str
+    room_id: str,
+    user: str = "Guest",
 ):
 
-    await manager.connect(room_id, websocket)
+    user_name = user.strip()[:48] or "Guest"
+    await manager.connect(room_id, websocket, user_name)
 
     user_count = manager.get_user_count(room_id)
+    user_names = manager.get_user_names(room_id)
 
     print(
         f"[WebSocket] User connected to room "
         f"{room_id} | Users: {user_count}"
     )
 
-    # Tell existing users that someone joined
+    # Send the complete roster to the new participant, then notify everyone
+    # already in the room about the updated roster.
+    await websocket.send_json(
+        {
+            "type": "room_state",
+            "room_id": room_id,
+            "user_count": user_count,
+            "participants": user_names,
+        }
+    )
     await manager.broadcast(
         room_id,
         {
             "type": "user_joined",
             "room_id": room_id,
-            "user_count": user_count
-        }
+            "user_count": user_count,
+            "participants": user_names,
+        },
+        exclude=websocket,
     )
 
     try:
@@ -130,6 +152,7 @@ async def websocket_room(
         )
 
         user_count = manager.get_user_count(room_id)
+        user_names = manager.get_user_names(room_id)
 
         print(
             f"[WebSocket] User disconnected from room "
@@ -142,7 +165,8 @@ async def websocket_room(
             {
                 "type": "user_left",
                 "room_id": room_id,
-                "user_count": user_count
+                "user_count": user_count,
+                "participants": user_names,
             }
         )
 

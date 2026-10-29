@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import TopBar from "@/components/dashboard/TopBar";
 import CameraPanel from "@/components/dashboard/CameraPanel";
@@ -9,13 +9,17 @@ import TranslationPanel from "@/components/dashboard/TranslationPanel";
 import AvatarPanel from "@/components/dashboard/AvatarPanel";
 import SpeechPanel from "@/components/dashboard/SpeechPanel";
 import NormalMeeting from "@/components/dashboard/NormalMeeting";
+import ParticipantsButton from "@/components/dashboard/ParticipantsButton";
 import { roomSocketUrl } from "@/services/api";
 import { speak } from "@/services/speech";
-import { browserLocale, translatePhrase } from "@/services/signLanguage";
+import { browserLocale } from "@/services/signLanguage";
+import { translateText } from "@/services/api";
+import { stopContinuousRecording } from "@/services/audioRecorder";
 
 import { useTranslation } from "@/context/TranslationContext";
 
 export default function MeetingPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
  const roomId = searchParams.get("room") || "UNKNOWN";
@@ -41,6 +45,7 @@ const mode = searchParams.get("mode") || "asl";
 
   const [connected, setConnected] = useState(false);
   const [userCount, setUserCount] = useState(0);
+  const [participants, setParticipants] = useState<string[]>([]);
 
   // ============================================================
   // CHAT STATE
@@ -71,7 +76,7 @@ const mode = searchParams.get("mode") || "asl";
     console.log(`Connecting to room: ${roomId}`);
     console.log(`User: ${userName}`);
 
-    const socket = new WebSocket(roomSocketUrl(roomId));
+    const socket = new WebSocket(roomSocketUrl(roomId, userName));
 
     socketRef.current = socket;
 
@@ -86,13 +91,14 @@ const mode = searchParams.get("mode") || "asl";
 
       // Current user is connected
       setUserCount(1);
+      setParticipants([userName]);
     };
 
     // ==========================================================
     // RECEIVE MESSAGE
     // ==========================================================
 
-    socket.onmessage = (event) => {
+    socket.onmessage = async (event) => {
       console.log("Message received:");
       console.log(event.data);
 
@@ -105,10 +111,13 @@ const mode = searchParams.get("mode") || "asl";
         // USER JOINED
         // ======================================================
 
-        if (data.type === "user_joined") {
+        if (data.type === "room_state" || data.type === "user_joined") {
           console.log("A user joined the room.");
 
-          setUserCount(data.user_count);
+          if (Array.isArray(data.participants)) {
+            setParticipants(data.participants);
+          }
+          setUserCount(data.user_count ?? data.participants?.length ?? 1);
         }
 
         // ======================================================
@@ -118,7 +127,10 @@ const mode = searchParams.get("mode") || "asl";
         else if (data.type === "user_left") {
           console.log("A user left the room.");
 
-          setUserCount(data.user_count);
+          if (Array.isArray(data.participants)) {
+            setParticipants(data.participants);
+          }
+          setUserCount(data.user_count ?? data.participants?.length ?? 1);
         }
 
         // ======================================================
@@ -128,14 +140,20 @@ const mode = searchParams.get("mode") || "asl";
         else if (data.type === "chat") {
           console.log("Chat message received:", data);
 
-          setMessages((prev) => [
-            ...prev,
-            `${data.user}: ${data.message}`,
+          const sourceText = data.message || "";
+          const sourceLanguage = data.sourceLanguage || "auto";
+          setMessages((prev) => [...prev, `${data.user}: ${sourceText}`]);
+          const [output, english] = await Promise.all([
+            translateText(sourceText, sourceLanguage, conversationLanguageRef.current),
+            sourceLanguage === "en"
+              ? Promise.resolve({ text: sourceText })
+              : translateText(sourceText, sourceLanguage, "en"),
           ]);
-          setSentence(data.message || "");
-          setDetectedWord(data.message || "");
-          setTranslatedText(translatePhrase(data.message || "", conversationLanguageRef.current));
-          speak(translatePhrase(data.message || "", conversationLanguageRef.current), browserLocale(conversationLanguageRef.current));
+
+          setSentence(english.text || sourceText);
+          setDetectedWord(english.text || sourceText);
+          setTranslatedText(output.text || sourceText);
+          speak(output.text || sourceText, browserLocale(conversationLanguageRef.current));
         }
 
         // ======================================================
@@ -150,9 +168,11 @@ const mode = searchParams.get("mode") || "asl";
           if (word) {
             // Show received sign as detected word
             setDetectedWord(word);
+            setMessages((prev) => [...prev, `🤟 ASL User: ${word}`]);
             const signSentence = typeof data.sentence === "string" ? data.sentence : word;
-            setTranslatedText(translatePhrase(signSentence, conversationLanguageRef.current));
-            speak(translatePhrase(word.replace(/_/g, " "), conversationLanguageRef.current), browserLocale(conversationLanguageRef.current));
+            const output = await translateText(signSentence, "en", conversationLanguageRef.current);
+            setTranslatedText(output.text || signSentence);
+            speak(output.text || signSentence, browserLocale(conversationLanguageRef.current));
 
             // Use the sender's full sentence snapshot when available.
             // Older sign messages still work by appending the individual word.
@@ -162,10 +182,6 @@ const mode = searchParams.get("mode") || "asl";
               appendDetectedSign(word);
             }
 
-            setMessages((prev) => [
-      ...prev,
-      `🤟 ASL User: ${word}`,
-    ]);
           }
         }
 
@@ -177,23 +193,23 @@ const mode = searchParams.get("mode") || "asl";
           console.log("Remote speech received:", data);
 
           const text = data.text || "";
+          const originalText = data.originalText || text;
+          const sourceLanguage = data.sourceLanguage || "en";
 
           if (text) {
+            setSpeechText(originalText);
+            setMessages((prev) => [...prev, `🎤 Speech: ${originalText}`]);
+            const output = await translateText(originalText, sourceLanguage, conversationLanguageRef.current);
             // Show received speech
-            setSpeechText(text);
-            setTranslatedText(translatePhrase(text, conversationLanguageRef.current));
+            setTranslatedText(output.text || originalText);
 
             // Add speech to sentence
             setSentence(text);
 
             // Send received word/text to avatar
             setDetectedWord(text);
-            speak(translatePhrase(text, conversationLanguageRef.current), browserLocale(conversationLanguageRef.current));
+            speak(output.text || originalText, browserLocale(conversationLanguageRef.current));
 
-            setMessages((prev) => [
-      ...prev,
-      `🎤 Speech: ${data.originalText || text}`,
-    ]);
           }
         }
 
@@ -210,6 +226,7 @@ const mode = searchParams.get("mode") || "asl";
           "Failed to parse WebSocket message:",
           error
         );
+        setTranslatedText(error instanceof Error ? error.message : "Translation unavailable.");
       }
     };
 
@@ -278,11 +295,26 @@ const mode = searchParams.get("mode") || "asl";
     );
   }
 
+  async function leaveRoom() {
+    try {
+      await stopContinuousRecording();
+    } catch (error) {
+      console.error("Could not stop the microphone cleanly:", error);
+    }
+
+    const socket = socketRef.current;
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      socket.close(1000, "Participant left the room");
+    }
+    socketRef.current = null;
+    router.replace("/");
+  }
+
   // ============================================================
   // CHAT MESSAGE
   // ============================================================
 
-  function sendMessage() {
+  async function sendMessage() {
     if (!messageInput.trim()) {
       return;
     }
@@ -295,26 +327,30 @@ const mode = searchParams.get("mode") || "asl";
       return;
     }
 
+    const sourceText = messageInput.trim();
     const message = {
       type: "chat",
-      message: messageInput,
+      message: sourceText,
       user: userName,
+      sourceLanguage: "auto",
     };
 
-    socketRef.current.send(
-      JSON.stringify(message)
-    );
-    setSentence(messageInput);
-    setDetectedWord(messageInput);
-    setTranslatedText(translatePhrase(messageInput, conversationLanguage));
-
-    // Show our own message immediately
-    setMessages((prev) => [
-      ...prev,
-      `You: ${messageInput}`,
-    ]);
-
+    socketRef.current.send(JSON.stringify(message));
+    setMessages((prev) => [...prev, `You: ${sourceText}`]);
     setMessageInput("");
+
+    try {
+      const output = await translateText(sourceText, "auto", conversationLanguage);
+      const english = conversationLanguage === "en"
+        ? output
+        : await translateText(sourceText, output.source_language || "auto", "en");
+      setSentence(english.text || sourceText);
+      setDetectedWord(english.text || sourceText);
+      setTranslatedText(output.text || sourceText);
+    } catch (error) {
+      setTranslatedText(error instanceof Error ? error.message : "Translation unavailable.");
+    }
+
   }
 
   async function copyInviteLink() {
@@ -337,12 +373,14 @@ const mode = searchParams.get("mode") || "asl";
         userName={userName}
         connected={connected}
         userCount={userCount}
+        participants={participants}
         messages={messages}
         messageInput={messageInput}
         setMessageInput={setMessageInput}
         sendMessage={sendMessage}
         sendRoomMessage={sendRoomMessage}
         onSpeechTranscript={addSpeechTranscript}
+        onLeaveRoom={() => void leaveRoom()}
       />
     ) : (
       <main className="min-h-screen bg-slate-950 text-white">
@@ -359,9 +397,14 @@ const mode = searchParams.get("mode") || "asl";
 
         <div className="px-5 pt-5">
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900 p-5">
 
-            <div className="grid grid-cols-4 gap-5">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">
+              ASL user
+            </p>
+
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="grid flex-1 grid-cols-2 gap-5 lg:grid-cols-4">
 
               {/* ROOM */}
 
@@ -373,16 +416,6 @@ const mode = searchParams.get("mode") || "asl";
                 <p className="text-white text-lg font-bold mt-1">
                   {roomId}
                 </p>
-              </div>
-
-              <div className="col-span-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => void copyInviteLink()}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
-                >
-                  {inviteCopied ? "Invite link copied" : "Copy invite link"}
-                </button>
               </div>
 
               {/* USER */}
@@ -423,14 +456,29 @@ const mode = searchParams.get("mode") || "asl";
 
               {/* USERS */}
 
-              <div>
-                <p className="text-slate-400 text-sm">
-                  Users
-                </p>
+              <ParticipantsButton
+                userCount={userCount}
+                participants={participants}
+                currentUser={userName}
+              />
 
-                <p className="text-white text-lg font-bold mt-1">
-                  {userCount}
-                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => void copyInviteLink()}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+                >
+                  {inviteCopied ? "Invite link copied" : "Copy invite link"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void leaveRoom()}
+                  className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                >
+                  Leave Room
+                </button>
               </div>
 
             </div>
@@ -443,20 +491,24 @@ const mode = searchParams.get("mode") || "asl";
             ROOM CHAT
         ===================================================== */}
 
-        <div className="px-5 pt-5">
+        <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-12">
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="order-1 xl:col-span-6">
+            <CameraPanel sendRoomMessage={sendRoomMessage} />
+          </div>
 
-            <h2 className="text-xl font-bold mb-4">
-              Room Communication Test
+          <div className="order-2 flex min-h-[620px] flex-col rounded-2xl border border-slate-800 bg-slate-900 p-5 xl:col-span-6">
+
+            <h2 className="mb-4 text-xl font-bold">
+              Live Conversation
             </h2>
 
             {/* CONVERSATION */}
 
-<div className="bg-slate-950 rounded-2xl border border-slate-800 p-5 min-h-[250px] max-h-[400px] overflow-y-auto mb-4">
+<div className="mb-4 min-h-[380px] flex-1 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-5">
 
   {messages.length === 0 ? (
-    <div className="flex items-center justify-center h-[200px]">
+    <div className="flex h-[200px] items-center justify-center">
       <div className="text-center">
 
         <div className="text-5xl mb-4">
@@ -495,7 +547,7 @@ const mode = searchParams.get("mode") || "asl";
           >
 
             <div
-              className={`max-w-[75%] rounded-2xl px-4 py-3 border ${
+              className={`max-w-[40%] rounded-2xl px-4 py-3 border ${
                 isYou || isOutgoingSpeech
                   ? "bg-blue-600 border-blue-500"
                   : "bg-slate-800 border-slate-700"
@@ -566,38 +618,13 @@ const mode = searchParams.get("mode") || "asl";
 
           </div>
 
-        </div>
-
-        {/* =====================================================
-            EXISTING ASL MEETING AREA
-        ===================================================== */}
-
-        <div className="grid grid-cols-12 gap-5 p-5">
-
-          {/* CAMERA */}
-
-          <div className="col-span-8">
-
-            <CameraPanel
-              sendRoomMessage={sendRoomMessage}
-            />
-
-          </div>
-
-          {/* RIGHT SIDE */}
-
-          <div className="col-span-4 flex flex-col gap-5">
-
-            {/* AI TRANSLATION */}
-
+          <div className="order-3 xl:col-span-6">
             <TranslationPanel />
-
-            {/* 3D AVATAR */}
-
-            <AvatarPanel />
-
           </div>
 
+          <div className="order-4 min-w-0 xl:col-span-6">
+            <AvatarPanel />
+          </div>
         </div>
 
       </main>

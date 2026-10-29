@@ -86,7 +86,7 @@ async def speech_to_text(
         return {
             "text": text,
             "source_language": language,
-            "output_language": "en",
+            "output_language": language,
         }
 
     except Exception as e:

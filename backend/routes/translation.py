@@ -1,101 +1,48 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
+import asyncio
+import logging
 
-router = APIRouter(
-    prefix="/translation",
-    tags=["Translation"]
-)
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from backend.services.local_translation import LANGUAGE_CODES, translate_local
+
+router = APIRouter(prefix="/translation", tags=["Translation"])
+SUPPORTED_LANGUAGES = set(LANGUAGE_CODES)
+logger = logging.getLogger(__name__)
 
 
 class TranslationRequest(BaseModel):
-    text: str
-    source_language: str
+    text: str = Field(max_length=30000)
+    source_language: str = "auto"
     target_language: str = "en"
-
-
-# Basic offline translations for common project vocabulary.
-# This avoids external translation API rate limits.
-OFFLINE_TRANSLATIONS = {
-    "hi": {
-        "namaste": "hello",
-        "नमस्ते": "hello",
-        "धन्यवाद": "thank you",
-        "धन्यवाद।": "thank you",
-        "मदद": "help",
-        "कृपया": "please",
-        "माफ़ कीजिए": "sorry",
-        "हाँ": "yes",
-        "नहीं": "no",
-        "आप": "you",
-        "हम": "we",
-        "कहाँ": "where",
-        "कब": "when",
-        "क्यों": "why",
-        "प्यार": "love",
-        "अच्छा": "good",
-        "बुरा": "bad",
-        "अधिक": "more",
-        "कम": "less",
-        "नाम": "name",
-        "रुको": "stop",
-        "शुरू": "start",
-    },
-    "kn": {
-        "ನಮಸ್ಕಾರ": "hello",
-        "ನಮಸ್ತೆ": "hello",
-        "ಧನ್ಯವಾದಗಳು": "thank you",
-        "ಸಹಾಯ": "help",
-        "ದಯವಿಟ್ಟು": "please",
-        "ಕ್ಷಮಿಸಿ": "sorry",
-        "ಹೌದು": "yes",
-        "ಇಲ್ಲ": "no",
-        "ನೀವು": "you",
-        "ನಾವು": "we",
-        "ಎಲ್ಲಿ": "where",
-        "ಯಾವಾಗ": "when",
-        "ಏಕೆ": "why",
-        "ಪ್ರೀತಿ": "love",
-        "ಒಳ್ಳೆಯ": "good",
-        "ಕೆಟ್ಟ": "bad",
-        "ಹೆಚ್ಚು": "more",
-        "ಕಡಿಮೆ": "less",
-        "ಹೆಸರು": "name",
-        "ನಿಲ್ಲಿಸಿ": "stop",
-        "ಪ್ರಾರಂಭ": "start",
-    },
-}
 
 
 @router.post("/translate")
 async def translate_text(request: TranslationRequest):
-
     text = request.text.strip()
+    source_language = request.source_language.lower()
+    target_language = request.target_language.lower()
 
     if not text:
-        return {
-            "text": "",
-            "source_language": request.source_language,
-            "target_language": request.target_language,
-        }
+        return {"text": "", "source_language": source_language, "target_language": target_language}
+    if source_language not in SUPPORTED_LANGUAGES | {"auto"}:
+        raise HTTPException(status_code=422, detail="Source language must be English, Hindi, Kannada, or auto-detected.")
+    if target_language not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=422, detail="Target language must be English, Hindi, or Kannada.")
 
-    # English does not need translation.
-    if request.source_language == "en":
-        translated = text
-
-    else:
-        translations = OFFLINE_TRANSLATIONS.get(
-            request.source_language,
-            {}
-        )
-
-        # Exact phrase match
-        translated = translations.get(
-            text.lower(),
-            translations.get(text, text)
-        )
-
-    return {
-        "text": translated,
-        "source_language": request.source_language,
-        "target_language": request.target_language,
-    }
+    try:
+        return await asyncio.to_thread(translate_local, text, source_language, target_language)
+    except ImportError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Local translation dependencies are missing. Install backend/requirements.txt.",
+        ) from error
+    except Exception as error:
+        logger.exception("Local IndicTrans2 translation failed")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The local IndicTrans2 model could not translate this text. "
+                "Check model access, HF_TOKEN, the model cache, and backend memory."
+            ),
+        ) from error

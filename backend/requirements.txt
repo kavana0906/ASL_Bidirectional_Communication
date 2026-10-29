@@ -3,3 +3,8 @@ uvicorn
 python-multipart
 opencv-python
 numpy
+torch>=2.1
+transformers>=4.44,<5
+accelerate>=0.30
+sentencepiece>=0.2
+IndicTransToolkit @ git+https://github.com/VarunGumma/IndicTransToolkit.git

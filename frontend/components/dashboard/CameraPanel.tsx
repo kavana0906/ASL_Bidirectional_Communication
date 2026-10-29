@@ -37,6 +37,7 @@ import {
 
 interface CameraPanelProps {
   sendRoomMessage: (data: object) => void;
+  compact?: boolean;
 }
 
 // ============================================================
@@ -45,6 +46,7 @@ interface CameraPanelProps {
 
 export default function CameraPanel({
   sendRoomMessage,
+  compact = false,
 }: CameraPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -270,14 +272,14 @@ export default function CameraPanel({
   // ============================================================
 
   return (
-    <div className="bg-slate-900 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
+    <div className={`bg-slate-900 rounded-3xl border border-slate-800 shadow-xl overflow-hidden ${compact ? "flex h-full min-h-0 flex-col" : ""}`}>
       {/* HEADER */}
 
-      <div className="flex items-center justify-between p-5 border-b border-slate-800">
+      <div className={`flex items-center justify-between border-b border-slate-800 ${compact ? "p-3" : "p-5"}`}>
         <div className="flex items-center gap-3">
           <Camera className="text-blue-400" />
 
-          <h2 className="text-xl font-bold text-white">
+          <h2 className={`font-bold text-white ${compact ? "text-base" : "text-xl"}`}>
             Live Camera
           </h2>
         </div>
@@ -295,7 +297,7 @@ export default function CameraPanel({
 
       {/* CAMERA PREVIEW */}
 
-      <div className="bg-black h-[420px] flex items-center justify-center">
+      <div className={`flex items-center justify-center bg-black ${compact ? "min-h-0 flex-1" : "h-[420px]"}`}>
         <video
           ref={videoRef}
           autoPlay
@@ -307,13 +309,13 @@ export default function CameraPanel({
 
       {/* CONTROLS */}
 
-      <div className="flex justify-center gap-4 p-5 border-t border-slate-800">
+      <div className={`flex items-center justify-center gap-2 border-t border-slate-800 ${compact ? "flex-wrap p-2" : "gap-4 p-5"}`}>
         {/* START CAMERA */}
 
         <button
           onClick={startCamera}
           disabled={isRunning}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 transition disabled:cursor-not-allowed disabled:opacity-50"
+          className={`flex items-center gap-2 rounded-xl bg-blue-600 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 ${compact ? "px-3 py-2 text-sm" : "px-5 py-3"}`}
         >
           <Play size={18} />
           Start Camera
@@ -324,13 +326,13 @@ export default function CameraPanel({
         <button
           onClick={stopCamera}
           disabled={!isRunning}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-50"
+          className={`flex items-center gap-2 rounded-xl bg-red-600 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 ${compact ? "px-3 py-2 text-sm" : "px-5 py-3"}`}
         >
           <Square size={18} />
           Stop
         </button>
 
-        <p className="text-sm text-slate-300" aria-live="polite">
+        <p className={`text-slate-300 ${compact ? "w-full text-center text-xs" : "text-sm"}`} aria-live="polite">
           {predictionUnavailableRef.current
             ? "ASL recognition is unavailable"
             : isPredicting
@@ -341,7 +343,7 @@ export default function CameraPanel({
         </p>
       </div>
       {predictionError ? (
-        <p role="alert" className="px-5 pb-5 text-sm text-amber-300">
+        <p role="alert" className={`text-amber-300 ${compact ? "px-3 pb-2 text-xs" : "px-5 pb-5 text-sm"}`}>
           {predictionError}
         </p>
       ) : null}

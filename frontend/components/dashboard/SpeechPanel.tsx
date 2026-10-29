@@ -19,7 +19,6 @@ import {
 } from "@/services/audioRecorder";
 
 import { speechToText, translateText } from "@/services/api";
-import { translatePhrase } from "@/services/signLanguage";
 
 
 // ============================================================
@@ -46,8 +45,8 @@ export default function SpeechPanel({
   const {
     setSpeechText,
     setSentence,
-    setConversationLanguage,
     setTranslatedText,
+    conversationLanguage,
   } = useTranslation();
 
 
@@ -61,42 +60,37 @@ export default function SpeechPanel({
   const [language, setLanguage] = useState<"en" | "hi" | "kn">("en");
 
   async function handleAudio(audioBlob: Blob) {
-    console.log("🔥 handleAudio called - language:", language);
-  const result = await speechToText(audioBlob, language);
-  const spokenText = result.text || "";
+    const result = await speechToText(audioBlob, language);
+    const spokenText = result.text || "";
 
-  if (!spokenText.trim()) return;
+    if (!spokenText.trim()) return;
 
-  let englishText = spokenText;
+    setSpeechText(spokenText);
+    onTranscript(spokenText);
 
-  // Translate Hindi/Kannada speech into English
-  if (language === "hi" || language === "kn") {
-    const translation = await translateText(
-      spokenText,
-      language
-    );
+    let englishText = language === "en" ? spokenText : "";
+    try {
+      const englishPromise = language === "en"
+        ? Promise.resolve({ text: spokenText })
+        : translateText(spokenText, language, "en");
+      const displayPromise = conversationLanguage === "en"
+        ? englishPromise
+        : translateText(spokenText, language, conversationLanguage);
+      const [englishResult, displayResult] = await Promise.all([englishPromise, displayPromise]);
+      englishText = englishResult.text || spokenText;
+      setSentence(englishText);
+      setTranslatedText(displayResult.text || spokenText);
+    } catch (error) {
+      setSentence(englishText || spokenText);
+      setTranslatedText(error instanceof Error ? error.message : "Translation unavailable.");
+    }
 
-    englishText = translation.text || spokenText;
-
-    console.log("Original speech:", spokenText);
-    console.log("English translation:", englishText);
-  }
-
-  // Display the original spoken text
-  setSpeechText(spokenText);
-  onTranscript(spokenText);
-
-  // Use English for the ASL pipeline
-  setSentence(englishText);
-  setTranslatedText(translatePhrase(englishText, language));
-
-  sendRoomMessage({
-    type: "speech",
-    text: englishText,
-    originalText: spokenText,
-    language,
-    translatedTo: "en",
-  });
+    sendRoomMessage({
+      type: "speech",
+      text: englishText || spokenText,
+      originalText: spokenText,
+      sourceLanguage: language,
+    });
 }
 
 
@@ -109,6 +103,7 @@ export default function SpeechPanel({
           await handleAudio(audioBlob);
         } catch (error) {
           console.error("Live speech-to-text error:", error);
+          setTranslatedText(error instanceof Error ? error.message : "Speech translation failed.");
         }
       });
     } catch (error) {
@@ -136,7 +131,6 @@ export default function SpeechPanel({
         onChange={(event) => {
           const nextLanguage = event.target.value as "en" | "hi" | "kn";
           setLanguage(nextLanguage);
-          setConversationLanguage(nextLanguage);
         }}
         disabled={isListening || disabled}
         aria-label="Spoken language"

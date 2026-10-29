@@ -34,8 +34,8 @@ export default function AvatarModel({
   return (
     <primitive
       object={scene}
-      scale={2}
-      position={[0, -2.2, 0]}
+      scale={2.7}
+      position={[0, -4.4, 0]}
     />
   );
 }
