@@ -29,7 +29,6 @@ async def translate_text(request: TranslationRequest):
         raise HTTPException(status_code=422, detail="Source language must be English, Hindi, Kannada, or auto-detected.")
     if target_language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=422, detail="Target language must be English, Hindi, or Kannada.")
-
     try:
         return await asyncio.to_thread(translate_local, text, source_language, target_language)
     except ImportError as error:

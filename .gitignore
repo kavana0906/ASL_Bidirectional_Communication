@@ -72,6 +72,7 @@ uploads/
 *.onnx
 *.safetensors
 *.bin
+!asl_training/asl_bilstm_attention_model.pth
 
 # =========================
 # OS

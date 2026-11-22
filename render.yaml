@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: signbridge-ai-api
+    runtime: python
+    plan: 2c-16g
+    region: singapore
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: signbridge-model-cache
+      mountPath: /var/data
+      sizeGB: 20
+    envVars:
+      - key: HF_HOME
+        value: /var/data/huggingface
+      - key: WHISPER_CACHE_DIR
+        value: /var/data/whisper
+      - key: INDICTRANS2_CACHE_DIR
+        value: /var/data/indictrans2
+      - key: TTS_HOME
+        value: /var/data/tts
+      - key: SIGNBRIDGE_DATA_DIR
+        value: /var/data/runtime
+      - key: HF_TOKEN
+        sync: false
+      - key: COQUI_TOS_AGREED
+        sync: false
+      - key: SIGNBRIDGE_CORS_ORIGINS
+        fromService:
+          type: web
+          name: signbridge-ai-web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: signbridge-ai-web
+    runtime: node
+    plan: 0.5c-512mb
+    region: singapore
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start -- --hostname 0.0.0.0 --port $PORT
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: signbridge-ai-api
+          envVarKey: RENDER_EXTERNAL_URL

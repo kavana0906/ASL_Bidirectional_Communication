@@ -40,6 +40,7 @@ def health():
         "server": "online",
         "camera": "ready" if is_sign_recognition_available() else "unavailable",
         "speech": "ready",
+        "translation": "ready",
         "avatar": "ready"
     }
 app.include_router(speech_router,prefix="/speech",tags=["Speech"])

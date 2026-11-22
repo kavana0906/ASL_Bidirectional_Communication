@@ -1,7 +1,10 @@
 import os
+import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 
+import imageio_ffmpeg
 import numpy as np
 import soundfile as sf
 import torch
@@ -16,44 +19,19 @@ from transformers import (
 # PATHS
 # ============================================================
 
-PROJECT_PATH = r"C:\ASL_Project"
-
-MODEL_PATH = os.path.join(
-    PROJECT_PATH,
-    "backend",
-    "models",
-    "whisper_small"
+PROJECT_PATH = Path(__file__).resolve().parents[2]
+LOCAL_MODEL_PATH = PROJECT_PATH / "backend" / "models" / "whisper_small"
+MODEL_PATH = os.getenv("WHISPER_MODEL_PATH") or (
+    str(LOCAL_MODEL_PATH)
+    if (LOCAL_MODEL_PATH / "model.safetensors").exists()
+    or (LOCAL_MODEL_PATH / "pytorch_model.bin").exists()
+    else os.getenv("WHISPER_MODEL_ID", "openai/whisper-small")
 )
-
-FFMPEG_BIN = r"C:\ffmpeg-8.1.2-full_build-shared\bin"
-
-FFMPEG_PATH = os.path.join(
-    FFMPEG_BIN,
-    "ffmpeg.exe"
+MODEL_CACHE = os.getenv(
+    "WHISPER_CACHE_DIR",
+    str(Path.home() / ".cache" / "signbridge" / "whisper"),
 )
-
-
-# ============================================================
-# CHECK PATHS
-# ============================================================
-
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(
-        f"Whisper model not found:\n{MODEL_PATH}"
-    )
-
-if not os.path.exists(FFMPEG_PATH):
-    raise FileNotFoundError(
-        f"FFmpeg not found:\n{FFMPEG_PATH}"
-    )
-
-
-# ============================================================
-# ADD FFMPEG DLL DIRECTORY
-# ============================================================
-
-if hasattr(os, "add_dll_directory"):
-    os.add_dll_directory(FFMPEG_BIN)
+FFMPEG_PATH = shutil.which("ffmpeg") or imageio_ffmpeg.get_ffmpeg_exe()
 
 
 # ============================================================
@@ -64,16 +42,20 @@ print("Loading Whisper...")
 print(f"Whisper model: {MODEL_PATH}")
 print(f"FFmpeg: {FFMPEG_PATH}")
 
+os.makedirs(MODEL_CACHE, exist_ok=True)
+
 
 processor = WhisperProcessor.from_pretrained(
     MODEL_PATH,
-    local_files_only=True,
+    cache_dir=MODEL_CACHE,
+    token=os.getenv("HF_TOKEN") or None,
 )
 
 
 model = WhisperForConditionalGeneration.from_pretrained(
     MODEL_PATH,
-    local_files_only=True,
+    cache_dir=MODEL_CACHE,
+    token=os.getenv("HF_TOKEN") or None,
 )
 
 

@@ -1,10 +1,14 @@
 fastapi
 uvicorn
 python-multipart
-opencv-python
-numpy
+opencv-python-headless
+mediapipe
+numpy>=1.23,<2
 torch>=2.1
 transformers>=4.44,<5
 accelerate>=0.30
 sentencepiece>=0.2
 IndicTransToolkit @ git+https://github.com/VarunGumma/IndicTransToolkit.git
+soundfile
+imageio-ffmpeg
+coqui-tts

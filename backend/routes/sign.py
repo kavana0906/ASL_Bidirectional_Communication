@@ -2,12 +2,6 @@ from typing import List
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from backend.services.sign_services import (
-    SignRecognitionUnavailable,
-    predict_frame_sequence,
-)
-
-
 router = APIRouter()
 
 
@@ -21,6 +15,11 @@ async def predict_sequence(frames: List[UploadFile] = File(...)):
     # recording while still allowing the exact 60-frame trained window.
     if len(frames) > 90:
         raise HTTPException(status_code=422, detail="Send no more than 90 frames.")
+
+    from backend.services.sign_services import (
+        SignRecognitionUnavailable,
+        predict_frame_sequence,
+    )
 
     try:
         frame_bytes = [await frame.read() for frame in frames]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import TopBar from "@/components/dashboard/TopBar";
@@ -19,6 +19,14 @@ import { stopContinuousRecording } from "@/services/audioRecorder";
 import { useTranslation } from "@/context/TranslationContext";
 
 export default function MeetingPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-slate-950 p-8 text-white">Loading meeting…</main>}>
+      <MeetingContent />
+    </Suspense>
+  );
+}
+
+function MeetingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

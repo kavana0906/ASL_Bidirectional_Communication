@@ -1,8 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
-from backend.services.tts_services import generate_speech
-from backend.services.speech_services import transcribe_audio
-
+from starlette.background import BackgroundTask
 import os
 import shutil
 import uuid
@@ -11,31 +9,34 @@ import uuid
 router = APIRouter()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.getenv("SIGNBRIDGE_DATA_DIR")
 
 SPEAKER_DIR = os.path.join(
-    BASE_DIR,
-    "models",
-    "xtts",
-    "speakers"
+    DATA_DIR or os.path.join(BASE_DIR, "models", "xtts"),
+    "speakers",
 )
 
 OUTPUT_DIR = os.path.join(
-    BASE_DIR,
-    "models",
-    "xtts",
-    "outputs"
+    DATA_DIR or os.path.join(BASE_DIR, "models", "xtts"),
+    "outputs",
 )
 
 AUDIO_DIR = os.path.join(
-    BASE_DIR,
-    "models",
-    "whisper",
-    "audio"
+    DATA_DIR or os.path.join(BASE_DIR, "models", "whisper"),
+    "audio",
 )
 
 os.makedirs(SPEAKER_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(AUDIO_DIR, exist_ok=True)
+
+
+def _cleanup_generated_audio(speaker_path: str, output_path: str):
+    for path in (speaker_path, output_path):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
 
 
 # =========================================================
@@ -73,6 +74,8 @@ async def speech_to_text(
         print(f"Transcribing audio: {audio_path}")
 
         # Whisper transcription
+        from backend.services.speech_services import transcribe_audio
+
         text = transcribe_audio(audio_path, language)
 
         print(f"Transcription: {text}")
@@ -89,6 +92,8 @@ async def speech_to_text(
             "output_language": language,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Speech-to-text error: {e}")
 
@@ -109,6 +114,8 @@ async def text_to_speech(
     language: str = Form("en")
 ):
     try:
+        from backend.services.tts_services import generate_speech
+
         file_id = str(uuid.uuid4())
 
         speaker_path = os.path.join(
@@ -143,9 +150,16 @@ async def text_to_speech(
         return FileResponse(
             output_path,
             media_type="audio/wav",
-            filename="speech.wav"
+            filename="speech.wav",
+            background=BackgroundTask(
+                _cleanup_generated_audio,
+                speaker_path,
+                output_path,
+            ),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"TTS Error: {e}")
 
